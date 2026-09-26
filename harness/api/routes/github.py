@@ -32,19 +32,18 @@ async def get_github_user(
     token: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None),
 ):
-    """Returns authenticated GitHub user profile or active session user."""
+    """Returns authenticated GitHub user profile or unauthenticated state."""
     auth_token = token or os.getenv("GITHUB_TOKEN")
     if authorization and authorization.startswith("Bearer "):
         auth_token = authorization.split(" ")[1]
 
     if not auth_token:
         return {
-            "authenticated": True,
-            "username": "VanshSharma88",
-            "name": "Vansh Sharma",
-            "avatar_url": "https://github.com/VanshSharma88.png",
-            "html_url": "https://github.com/VanshSharma88",
-            "public_repos": 12,
+            "authenticated": False,
+            "username": None,
+            "name": None,
+            "avatar_url": None,
+            "message": "Not logged in. Please provide a GitHub Personal Access Token or sign in.",
         }
 
     try:
@@ -67,22 +66,20 @@ async def get_github_user(
         logger.warning(f"GitHub user API fetch error: {e}")
 
     return {
-        "authenticated": True,
-        "username": "VanshSharma88",
-        "name": "Vansh Sharma",
-        "avatar_url": "https://github.com/VanshSharma88.png",
-        "html_url": "https://github.com/VanshSharma88",
-        "public_repos": 12,
+        "authenticated": False,
+        "username": None,
+        "avatar_url": None,
+        "error": "Invalid GitHub Access Token",
     }
 
 
 @router.get("/repos")
 async def list_github_repos(
-    username: str = Query("VanshSharma88"),
+    username: Optional[str] = Query(None),
     token: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None),
 ):
-    """Lists repositories for authorized user account."""
+    """Lists all repositories for authorized user account from GitHub API."""
     auth_token = token or os.getenv("GITHUB_TOKEN")
     if authorization and authorization.startswith("Bearer "):
         auth_token = authorization.split(" ")[1]
@@ -91,7 +88,12 @@ async def list_github_repos(
     if auth_token:
         headers["Authorization"] = f"Bearer {auth_token}"
 
-    url = "https://api.github.com/user/repos?sort=updated&per_page=30" if auth_token else f"https://api.github.com/users/{username}/repos?sort=updated&per_page=30"
+    if auth_token:
+        url = "https://api.github.com/user/repos?sort=updated&per_page=100&type=all"
+    elif username:
+        url = f"https://api.github.com/users/{username}/repos?sort=updated&per_page=100"
+    else:
+        url = "https://api.github.com/users/VanshSharma88/repos?sort=updated&per_page=100"
 
     try:
         async with httpx.AsyncClient() as client:
@@ -104,7 +106,7 @@ async def list_github_repos(
                         "id": r.get("id"),
                         "name": r.get("name"),
                         "full_name": r.get("full_name"),
-                        "owner": r.get("owner", {}).get("login", username),
+                        "owner": r.get("owner", {}).get("login", username or "VanshSharma88"),
                         "html_url": r.get("html_url"),
                         "clone_url": r.get("clone_url"),
                         "default_branch": r.get("default_branch", "main"),

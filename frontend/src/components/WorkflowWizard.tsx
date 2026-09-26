@@ -12,8 +12,10 @@ import {
   Loader2,
   UploadCloud,
   Check,
-  ChevronRight,
-  Lock,
+  Key,
+  UserCheck,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { CreateTaskPayload, TaskResponse } from '../types/api';
 
@@ -30,15 +32,27 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
   task,
   onOpenPRModal,
 }) => {
-  // Step State: 1 = Auth, 2 = Select Repo, 3 = Task Prompt, 4 = AI Execution, 5 = Review & Commit
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [githubToken, setGithubToken] = useState<string>('');
-  const [githubUser, setGithubUser] = useState({
-    authenticated: true,
-    username: 'VanshSharma88',
-    name: 'Vansh Sharma',
-    avatar: 'https://github.com/VanshSharma88.png',
+
+  // GitHub Auth State (Starts Unauthenticated - User explicitly logs in)
+  const [githubUsernameInput, setGithubUsernameInput] = useState<string>('');
+  const [githubTokenInput, setGithubTokenInput] = useState<string>('');
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
+  const [githubUser, setGithubUser] = useState<{
+    authenticated: boolean;
+    username: string | null;
+    name: string | null;
+    avatar: string | null;
+  }>({
+    authenticated: false,
+    username: null,
+    name: null,
+    avatar: null,
   });
+
+  // Repositories state dynamically loaded from GitHub
+  const [fetchedRepos, setFetchedRepos] = useState<Array<{ name: string; full_name: string; clone_url: string; default_branch: string }>>([]);
+  const [loadingRepos, setLoadingRepos] = useState<boolean>(false);
 
   const [selectedRepoUrl, setSelectedRepoUrl] = useState<string>('https://github.com/VanshSharma88/Basic_Calculator.git');
   const [selectedBranch, setSelectedBranch] = useState<string>('main');
@@ -48,18 +62,61 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
   const [committing, setCommitting] = useState<boolean>(false);
   const [commitStatusMsg, setCommitStatusMsg] = useState<string | null>(null);
 
-  const mockRepos = [
-    { name: 'VanshSharma88/Basic_Calculator', url: 'https://github.com/VanshSharma88/Basic_Calculator.git', branch: 'main' },
-    { name: 'VanshSharma88/Loginform', url: 'https://github.com/VanshSharma88/Loginform.git', branch: 'main' },
-    { name: 'chinmay7980/CaffiPilot', url: 'https://github.com/chinmay7980/CaffiPilot.git', branch: 'main' },
-  ];
-
-  // Auto-advance step based on execution
   const effectiveStep = isRunning
     ? 4
-    : task?.status?.toUpperCase() === 'COMPLETED'
+    : task?.status?.toUpperCase() === 'COMPLETED' || task?.status?.toUpperCase() === 'FAILED'
     ? 5
     : currentStep;
+
+  // Handle Explicit User GitHub Login
+  const handleGithubLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const uname = githubUsernameInput.trim() || 'VanshSharma88';
+    setAuthLoading(true);
+    setLoadingRepos(true);
+
+    try {
+      // 1. Fetch user details or use entered username
+      const userRes = await fetch(
+        `http://127.0.0.1:8000/api/v1/github/user?token=${encodeURIComponent(githubTokenInput)}`
+      );
+      const userData = await userRes.json();
+
+      const authenticatedUser = {
+        authenticated: true,
+        username: userData.username || uname,
+        name: userData.name || uname,
+        avatar: userData.avatar_url || `https://github.com/${uname}.png`,
+      };
+      setGithubUser(authenticatedUser);
+
+      // 2. Fetch all user repos dynamically from GitHub API
+      const reposRes = await fetch(
+        `http://127.0.0.1:8000/api/v1/github/repos?username=${encodeURIComponent(uname)}&token=${encodeURIComponent(githubTokenInput)}`
+      );
+      const reposData = await reposRes.json();
+
+      if (Array.isArray(reposData) && reposData.length > 0) {
+        setFetchedRepos(reposData);
+        setSelectedRepoUrl(reposData[0].clone_url || `https://github.com/${reposData[0].full_name}.git`);
+        setSelectedBranch(reposData[0].default_branch || 'main');
+      }
+
+      setCurrentStep(2);
+    } catch (err) {
+      console.warn('GitHub Auth Error:', err);
+      setGithubUser({
+        authenticated: true,
+        username: uname,
+        name: uname,
+        avatar: `https://github.com/${uname}.png`,
+      });
+      setCurrentStep(2);
+    } finally {
+      setAuthLoading(false);
+      setLoadingRepos(false);
+    }
+  };
 
   const handleLaunchAgent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,10 +164,10 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
       <div className="bg-dark-800/80 border border-dark-700/80 rounded-2xl p-4 shadow-xl">
         <div className="grid grid-cols-5 gap-2 text-center text-xs">
           {[
-            { step: 1, label: '1. GitHub Auth', icon: Github },
-            { step: 2, label: '2. Select Repo', icon: GitBranch },
-            { step: 3, label: '3. Describe Task', icon: Bot },
-            { step: 4, label: '4. AI Changes', icon: Code2 },
+            { step: 1, label: '1. GitHub Login', icon: Github },
+            { step: 2, label: '2. Repositories', icon: GitBranch },
+            { step: 3, label: '3. Task Issue', icon: Bot },
+            { step: 4, label: '4. AI Execution', icon: Code2 },
             { step: 5, label: '5. Review & Commit', icon: GitPullRequest },
           ].map(({ step, label, icon: Icon }) => {
             const isDone = effectiveStep > step;
@@ -119,9 +176,9 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
               <button
                 key={step}
                 onClick={() => {
-                  if (step <= effectiveStep || task) setCurrentStep(step);
+                  if (step <= effectiveStep || githubUser.authenticated) setCurrentStep(step);
                 }}
-                disabled={step > effectiveStep && !task}
+                disabled={step > 1 && !githubUser.authenticated}
                 className={`py-2 px-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
                   isCurrent
                     ? 'bg-brand-blue/20 border-brand-blue text-white shadow-lg shadow-brand-blue/20 ring-1 ring-brand-blue'
@@ -158,43 +215,81 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wider text-brand-cyan">
                   Step 1
                 </span>
-                <h3 className="text-base font-bold text-white">Login with GitHub</h3>
+                <h3 className="text-base font-bold text-white">Login & Authorize GitHub</h3>
               </div>
               <p className="text-xs text-gray-400 mt-1">
-                Authenticate your account to grant CaffiPilot access to your GitHub repositories.
+                Enter your GitHub Username or Personal Access Token to authorize and load all your account repositories.
               </p>
             </div>
           </div>
 
           {githubUser.authenticated ? (
             <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-              <img src={githubUser.avatar} alt={githubUser.username} className="w-5 h-5 rounded-full" />
+              <img src={githubUser.avatar || `https://github.com/${githubUser.username}.png`} alt={githubUser.username || ''} className="w-5 h-5 rounded-full" />
               <span>@{githubUser.username}</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
           ) : (
-            <button
-              onClick={() => setGithubUser({ ...githubUser, authenticated: true })}
-              className="px-4 py-2 bg-white text-dark-900 font-bold text-xs rounded-xl hover:bg-gray-100 flex items-center gap-2"
-            >
-              <Github className="w-4 h-4" />
-              Authorize GitHub Session
-            </button>
+            <div className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold">
+              Authentication Required
+            </div>
           )}
         </div>
 
-        {effectiveStep === 1 && (
-          <div className="mt-5 pt-4 border-t border-dark-700/60 flex items-center justify-between">
-            <span className="text-xs text-emerald-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4" /> Authorized as @{githubUser.username}
-            </span>
-            <button
-              onClick={() => setCurrentStep(2)}
-              className="px-4 py-2 bg-brand-blue text-white font-semibold text-xs rounded-xl hover:bg-brand-blue/90 flex items-center gap-2 shadow-md"
-            >
-              Next: Select Repository <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+        {!githubUser.authenticated ? (
+          <form onSubmit={handleGithubLogin} className="mt-5 pt-4 border-t border-dark-700/60 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">GitHub Username</label>
+                <input
+                  type="text"
+                  value={githubUsernameInput}
+                  onChange={(e) => setGithubUsernameInput(e.target.value)}
+                  placeholder="e.g. VanshSharma88"
+                  className="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Personal Access Token (Optional)</label>
+                <div className="relative">
+                  <Key className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    value={githubTokenInput}
+                    onChange={(e) => setGithubTokenInput(e.target.value)}
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    className="w-full bg-dark-900 border border-dark-600 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end">
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="px-5 py-2.5 bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-lg transition-colors disabled:opacity-50"
+              >
+                {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
+                Authorize & Load All My Repositories
+              </button>
+            </div>
+          </form>
+        ) : (
+          effectiveStep === 1 && (
+            <div className="mt-4 pt-3 border-t border-dark-700/60 flex items-center justify-between">
+              <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="w-4 h-4" /> Connected as @{githubUser.username}
+              </span>
+              <button
+                onClick={() => setCurrentStep(2)}
+                className="px-4 py-2 bg-brand-blue text-white font-semibold text-xs rounded-xl hover:bg-brand-blue/90 flex items-center gap-2 shadow-md"
+              >
+                Next: Select Repository <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )
         )}
       </div>
 
@@ -219,26 +314,41 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
                 <h3 className="text-base font-bold text-white">Select a Repository</h3>
               </div>
               <p className="text-xs text-gray-400 mt-0.5">
-                Choose from your authorized GitHub repositories or specify a custom GitHub repo URL.
+                Loaded {fetchedRepos.length} repositories from your GitHub account. Select one or enter a custom clone URL.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
               <div className="md:col-span-2">
                 <label className="block text-[11px] font-semibold text-gray-300 mb-1">
-                  Select User Repository
+                  Repository Selection
                 </label>
-                <select
-                  value={selectedRepoUrl}
-                  onChange={(e) => setSelectedRepoUrl(e.target.value)}
-                  className="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
-                >
-                  {mockRepos.map((r) => (
-                    <option key={r.url} value={r.url}>
-                      {r.name} ({r.branch})
-                    </option>
-                  ))}
-                </select>
+                {loadingRepos ? (
+                  <div className="flex items-center gap-2 p-2.5 bg-dark-900 border border-dark-600 rounded-xl text-xs text-gray-400">
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-cyan" />
+                    Fetching user repositories from GitHub API...
+                  </div>
+                ) : fetchedRepos.length > 0 ? (
+                  <select
+                    value={selectedRepoUrl}
+                    onChange={(e) => setSelectedRepoUrl(e.target.value)}
+                    className="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                  >
+                    {fetchedRepos.map((r) => (
+                      <option key={r.clone_url || r.name} value={r.clone_url || `https://github.com/${r.full_name}.git`}>
+                        {r.full_name || r.name} ({r.default_branch || 'main'})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={selectedRepoUrl}
+                    onChange={(e) => setSelectedRepoUrl(e.target.value)}
+                    placeholder="https://github.com/VanshSharma88/Basic_Calculator.git"
+                    className="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-gray-300 mb-1">
@@ -285,7 +395,7 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
                 <span className="text-xs font-semibold uppercase tracking-wider text-brand-cyan">
                   Step 3
                 </span>
-                <h3 className="text-base font-bold text-white">Describe the Coding Task</h3>
+                <h3 className="text-base font-bold text-white">Describe the Coding Task / Issue</h3>
               </div>
               <p className="text-xs text-gray-400 mt-0.5">
                 Specify what bug to fix or feature to implement in your selected repository.
@@ -320,7 +430,7 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Launch AI Agent Fix
+                      Launch AI Fix
                     </>
                   )}
                 </button>
@@ -359,7 +469,7 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
           {isRunning && (
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-blue/10 border border-brand-blue/30 text-brand-cyan text-xs font-bold animate-pulse">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>AI Agent ReAct Loop Running...</span>
+              <span>AI Agent Active...</span>
             </div>
           )}
         </div>
@@ -387,7 +497,7 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
                   <h3 className="text-base font-bold text-white">Review & Commit Changes</h3>
                 </div>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Review generated file diffs and explicitly authorization committing/pushing changes to GitHub.
+                  Review generated file diffs and click Commit & Push Changes to push to your repository.
                 </p>
               </div>
             </div>
