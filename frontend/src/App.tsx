@@ -7,6 +7,8 @@ import { LiveLogsPanel } from './components/LiveLogsPanel';
 import { FileChangesPanel } from './components/FileChangesPanel';
 import { TestResultsPanel } from './components/TestResultsPanel';
 import { ReportPanel } from './components/ReportPanel';
+import { WorkflowWizard } from './components/WorkflowWizard';
+import { PullRequestModal } from './components/PullRequestModal';
 import {
   cancelTask,
   checkHealth,
