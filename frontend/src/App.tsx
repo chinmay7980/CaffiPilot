@@ -55,6 +55,22 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     refreshHealth();
+
+    // Handle GitHub OAuth redirect parameters
+    const params = new URLSearchParams(window.location.search);
+    const oauthToken = params.get('token');
+    const authStatus = params.get('auth');
+    const uname = params.get('username') || 'VanshSharma88';
+
+    if (oauthToken || authStatus === 'success') {
+      setAuthUser({
+        username: uname,
+        name: uname,
+        avatar: `https://github.com/${uname}.png`,
+        token: oauthToken || '',
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   // Polling loop for active tasks

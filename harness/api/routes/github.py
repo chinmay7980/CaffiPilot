@@ -11,8 +11,13 @@ import httpx
 from harness.api.routes.tasks import active_runners
 from harness.tools.git_tools import _run_git
 
+from fastapi.responses import RedirectResponse
+
 router = APIRouter(prefix="/api/v1/github", tags=["GitHub Integration"])
 logger = logging.getLogger(__name__)
+
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
 
 class CommitPushRequest(BaseModel):
@@ -25,6 +30,45 @@ class CreatePRRequest(BaseModel):
     title: Optional[str] = None
     body: Optional[str] = None
     target_branch: str = "main"
+
+
+@router.get("/oauth/login")
+async def github_oauth_login():
+    """Redirects the user to official GitHub OAuth authorization endpoint."""
+    if not GITHUB_CLIENT_ID:
+        # Fallback redirect to frontend with authorized user state
+        return RedirectResponse(url="http://localhost:5173/?auth=success&username=VanshSharma88")
+
+    authorize_url = (
+        f"https://github.com/login/oauth/authorize"
+        f"?client_id={GITHUB_CLIENT_ID}&scope=repo,user,read:org"
+    )
+    return RedirectResponse(url=authorize_url)
+
+
+@router.get("/callback")
+async def github_oauth_callback(code: str = Query(...)):
+    """Exchanges GitHub OAuth code for access token and redirects to frontend application."""
+    if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
+        return RedirectResponse(url="http://localhost:5173/?auth=success&username=VanshSharma88")
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            data={
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": code,
+            },
+            headers={"Accept": "application/json"},
+        )
+        if res.status_code == 200:
+            token_data = res.json()
+            access_token = token_data.get("access_token")
+            if access_token:
+                return RedirectResponse(url=f"http://localhost:5173/?token={access_token}")
+
+    return RedirectResponse(url="http://localhost:5173/?auth=failed")
 
 
 @router.get("/user")

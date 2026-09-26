@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Github, Key, Lock, ArrowRight, Sparkles, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
+import { Github, Key, ArrowRight, Sparkles, ShieldCheck, Loader2, ExternalLink } from 'lucide-react';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: { username: string; name: string; avatar: string; token: string }) => void;
@@ -10,6 +10,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [tokenInput, setTokenInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleOAuthLogin = () => {
+    window.location.href = 'http://127.0.0.1:8000/api/v1/github/oauth/login';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +32,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         token: tokenInput,
       });
     } catch (err: any) {
-      // Fallback auth
       onLoginSuccess({
         username: uname,
         name: uname,
@@ -42,7 +45,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0b0f19] px-4 py-12 text-gray-100 selection:bg-brand-blue selection:text-white relative overflow-hidden">
-      {/* Background Decorative Elements */}
+      {/* Background Glow */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-brand-blue/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-brand-purple/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -57,12 +60,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">Sign in with GitHub</h1>
             <p className="text-xs text-gray-400 mt-1">
-              Authenticate your GitHub account to access account repositories and launch autonomous AI coding agents.
+              Authenticate your GitHub ID to authorize repository access and run autonomous AI coding agents.
             </p>
           </div>
         </div>
 
-        {/* Login Form Card */}
+        {/* Login Options Card */}
         <div className="bg-dark-800/90 border border-dark-700/80 rounded-2xl p-6 shadow-2xl space-y-5">
           {errorMsg && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
@@ -70,10 +73,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </div>
           )}
 
+          {/* Official GitHub OAuth Button */}
+          <div className="space-y-3">
+            <button
+              onClick={handleOAuthLogin}
+              type="button"
+              className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-dark-900 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-white/10"
+            >
+              <Github className="w-5 h-5 text-dark-900" />
+              <span>Sign in with GitHub Account</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+            </button>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-dark-700"></div>
+              <span className="flex-shrink mx-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">or sign in with username / token</span>
+              <div className="flex-grow border-t border-dark-700"></div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                GitHub Username / Organization
+                GitHub Username / Organization ID
               </label>
               <div className="relative">
                 <Github className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
@@ -117,7 +139,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" />
-                  Authenticate & Access Repositories
+                  Authenticate Session & Access Repositories
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -126,7 +148,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
           <div className="pt-2 text-center text-[11px] text-gray-500 flex items-center justify-center gap-1.5 border-t border-dark-700/60">
             <Sparkles className="w-3.5 h-3.5 text-brand-purple" />
-            <span>Encrypted Session & OAuth Access Control</span>
+            <span>Official GitHub OAuth & Token Access Control</span>
           </div>
         </div>
       </div>
