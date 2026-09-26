@@ -200,7 +200,14 @@ async def get_task(task_id: str):
     runner = active_runners.get(task_id)
     if not runner:
         raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found.")
-    return _to_response(runner)
+    resp = _to_response(runner)
+    try:
+        diff_tool = GitDiffTool(runner.state.repo_path)
+        diff_res = await diff_tool.execute()
+        resp.git_diff = diff_res.output if diff_res.success else ""
+    except Exception:
+        pass
+    return resp
 
 
 @router.post("/api/v1/tasks/{task_id}/cancel", response_model=TaskResponse)

@@ -91,6 +91,7 @@ class TaskResponse(BaseModel):
     execution_plan: List[str] = Field(default_factory=list)
     model: str
     files_modified: List[str] = Field(default_factory=list)
+    git_diff: Optional[str] = None
     final_summary: Optional[str] = None
     final_result: Optional[str] = None
     verification_status: Optional[str] = None

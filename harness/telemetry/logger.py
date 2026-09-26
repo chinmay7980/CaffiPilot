@@ -104,7 +104,21 @@ class TelemetryBus:
         return event
 
     def get_events(self, task_id: str) -> List[TelemetryEvent]:
-        return self._events_by_task.get(task_id, [])
+        events = self._events_by_task.get(task_id, [])
+        if not events and self.persistence_dir:
+            try:
+                import os
+                trace_file = os.path.join(self.persistence_dir, f"{task_id}_telemetry.jsonl")
+                if os.path.exists(trace_file):
+                    events = []
+                    with open(trace_file, "r", encoding="utf-8") as f:
+                        for line in f:
+                            if line.strip():
+                                events.append(TelemetryEvent.model_validate_json(line.strip()))
+                    self._events_by_task[task_id] = events
+            except Exception as e:
+                logger.debug(f"Failed to load persisted events for {task_id}: {e}")
+        return events
 
     def clear(self, task_id: Optional[str] = None) -> None:
         if task_id:

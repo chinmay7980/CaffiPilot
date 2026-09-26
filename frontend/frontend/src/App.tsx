@@ -216,7 +216,7 @@ export const App: React.FC = () => {
             <div ref={fileDiffRef}>
               <FileChangesPanel
                 filesModified={task.files_modified || []}
-                gitDiff={report?.json_report?.git_diff}
+                gitDiff={task.git_diff || report?.json_report?.git_diff}
               />
             </div>
 

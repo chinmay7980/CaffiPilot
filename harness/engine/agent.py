@@ -12,6 +12,7 @@ from harness.engine.state import StepRecord, TaskState, TaskStatus
 from harness.llm.base import BaseLLMClient
 from harness.llm.prompts import SYSTEM_PROMPT, TASK_TEMPLATE
 from harness.tools.registry import ToolRegistry, create_default_registry
+from harness.tools.git_tools import GitCommitTool, _run_git
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,26 @@ class AgentRunner:
             task_description=self.state.issue_description,
             workspace_path=self.state.repo_path,
         )
+
+        # Auto-inspect workspace files at startup so the model has immediate context and safety pre-inspection is satisfied
+        try:
+            inspection_res = await self.tools.execute("list_files", {"path": "."})
+            if inspection_res.success:
+                initial_user_prompt += f"\n\n# EXISTING WORKSPACE FILES:\n{inspection_res.output}"
+                startup_step = StepRecord(
+                    step_number=0,
+                    stage=self.state.status,
+                    thought="Auto-inspected workspace files on task initialization.",
+                    tool_name="list_files",
+                    tool_args={"path": "."},
+                    tool_output=inspection_res.output,
+                    is_error=False,
+                    tokens_used=0,
+                )
+                self.state.add_step(startup_step)
+        except Exception as e:
+            logger.warning(f"Startup workspace auto-inspection failed: {e}")
+
         self.context.add_user_message(initial_user_prompt)
 
         tool_schemas = self.tools.get_openai_schemas()
@@ -194,12 +215,17 @@ class AgentRunner:
                 # Loop prevention: check duplicate consecutive tool calls
                 call_sig = f"{tool_name}:{str(tool_args)}"
                 self._recent_tool_call_history.append(call_sig)
-                if len(self._recent_tool_call_history) >= 3 and self._recent_tool_call_history[-3:] == [call_sig] * 3:
-                    logger.warning(f"Infinite loop detected: tool '{tool_name}' called 3 times with identical arguments.")
+                if len(self._recent_tool_call_history) >= 5 and self._recent_tool_call_history[-5:] == [call_sig] * 5:
+                    logger.warning(f"Infinite loop detected: tool '{tool_name}' called 5 times with identical arguments.")
                     self.state.mark_failed(
                         f"Infinite loop protection triggered: tool '{tool_name}' called repeatedly with identical parameters."
                     )
                     return self.state
+                elif len(self._recent_tool_call_history) >= 2 and self._recent_tool_call_history[-2:] == [call_sig] * 2:
+                    self.context.add_user_message(
+                        f"Guidance: You have invoked tool '{tool_name}' with identical parameters multiple times. "
+                        "Please move forward to modifying the files using `write_file` / `edit_file` or complete the task with `finish_task`."
+                    )
 
                 # Pre-inspection requirement check
                 modification_tools = {"write_file", "edit_file", "apply_patch", "delete_file"}
@@ -268,6 +294,18 @@ class AgentRunner:
                         verification=verification,
                         files=files,
                     )
+                    # Auto-commit and attempt to push workspace changes on task completion
+                    try:
+                        git_commit_tool = GitCommitTool(self.state.repo_path)
+                        commit_msg = f"feat(ai-harness): {self.state.issue_description} [{self.state.task_id}]"
+                        commit_res = await git_commit_tool.execute(message=commit_msg, stage_all=True)
+                        if commit_res.success:
+                            logger.info(f"Task [{self.state.task_id}] auto-committed: {commit_res.output}")
+                            code, push_out, push_err = await _run_git(self.state.repo_path, "push")
+                            if code == 0:
+                                logger.info(f"Task [{self.state.task_id}] auto-pushed to remote branch successfully.")
+                    except Exception as e:
+                        logger.warning(f"Auto-commit on completion failed: {e}")
                     if self.on_step_callback:
                         try:
                             self.on_step_callback(step_rec)

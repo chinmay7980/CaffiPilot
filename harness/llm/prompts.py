@@ -14,7 +14,10 @@ OPERATING PRINCIPLES:
 2. TARGETED & SURGICAL EDITS:
    - Make clean, localized edits that solve the problem without introducing regressions or modifying unrelated code.
    - If a file is empty (0 bytes), use `write_file` to supply the complete implementation. Do not use `edit_file` on empty files.
-   - When asked to create or change UI (HTML/CSS/JS), write complete, polished code in `index.html`, `style.css`/`index.css`, and `script.js` using `write_file`.
+   - When asked to create or change UI (HTML/CSS/JS):
+     * Write HTML structure in `index.html`.
+     * Write CSS styles ONLY (selectors and declarations) in `style.css` or `index.css`. NEVER put HTML tags inside CSS files.
+     * Write JavaScript logic in `script.js` or `index.js`.
    - Preserve existing coding conventions, formatting, types, and docstrings.
 
 3. TEST-DRIVEN VERIFICATION:

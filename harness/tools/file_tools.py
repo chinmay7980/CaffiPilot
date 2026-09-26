@@ -128,12 +128,22 @@ class WriteFileTool(BaseTool):
         try:
             target = resolve_safe_path(self.workspace_root, path)
             target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                with open(target, "r", encoding="utf-8", errors="ignore") as f:
+                    existing_content = f.read()
+                if existing_content == content:
+                    return ToolResult(
+                        success=True,
+                        output=f"File '{path}' already contains this exact content. Task modification for '{path}' is complete. Please call `finish_task` to finalize.",
+                        data={"path": path, "bytes": len(content.encode("utf-8"))},
+                    )
+
             with open(target, "w", encoding="utf-8") as f:
                 f.write(content)
             bytes_written = len(content.encode("utf-8"))
             return ToolResult(
                 success=True,
-                output=f"Successfully wrote {bytes_written} bytes to '{path}'",
+                output=f"Successfully wrote {bytes_written} bytes to '{path}'. Next step: write additional files if needed, or call `finish_task` with verification_status='passed' to complete the task.",
                 data={"path": path, "bytes": bytes_written},
             )
         except Exception as e:

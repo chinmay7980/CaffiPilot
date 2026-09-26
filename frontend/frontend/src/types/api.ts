@@ -37,6 +37,7 @@ export interface TaskResponse {
   execution_plan: string[];
   model: string;
   files_modified: string[];
+  git_diff?: string;
   final_summary?: string;
   final_result?: string;
   verification_status?: string;
