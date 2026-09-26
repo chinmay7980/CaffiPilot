@@ -1,0 +1,38 @@
+{
+  "task_id": "task_8988c21a",
+  "repo_path": "/var/folders/qz/dndbyg_d4s790bpjtph8mpsh0000gn/T/harness_test_ws_1mb2lx4d",
+  "issue_description": "Quick test task",
+  "status": "failed",
+  "verification_status": "unverified",
+  "failure_category": "STEP_LIMIT_EXCEEDED",
+  "model": "qwen2.5-coder:1.5b",
+  "final_summary": null,
+  "final_result": "Failed: Task reached maximum step limit (1) without calling finish_task.",
+  "error_message": "Task reached maximum step limit (1) without calling finish_task.",
+  "files_modified": [],
+  "metrics": {
+    "task_id": "task_8988c21a",
+    "task_duration_seconds": 0.542,
+    "total_steps": 1,
+    "total_tool_calls": 1,
+    "total_llm_requests": 1,
+    "total_tokens": 2155,
+    "retry_count": 0,
+    "errors_encountered": 0,
+    "test_runs_count": 0,
+    "test_passes_count": 0,
+    "test_failures_count": 0,
+    "failure_category": "STEP_LIMIT_EXCEEDED",
+    "final_status": "failed",
+    "files_modified_count": 0,
+    "tool_usage_counts": {
+      "list_files": 1
+    }
+  },
+  "git_diff": "[No diff - working tree clean or no changes detected]",
+  "created_at": "2026-09-26T13:29:16.235889+00:00",
+  "completed_at": "2026-09-26T13:29:16.778027+00:00",
+  "start_time": "2026-09-26T13:29:16.235896+00:00",
+  "completion_time": "2026-09-26T13:29:16.778027+00:00",
+  "steps_count": 1
+}
