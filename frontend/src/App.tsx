@@ -1,13 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Header } from './components/Header';
 import { SettingsModal } from './components/SettingsModal';
-import { RepositoryForm } from './components/RepositoryForm';
-import { TaskExecutionPanel } from './components/TaskExecutionPanel';
-import { LiveLogsPanel } from './components/LiveLogsPanel';
-import { FileChangesPanel } from './components/FileChangesPanel';
-import { TestResultsPanel } from './components/TestResultsPanel';
-import { ReportPanel } from './components/ReportPanel';
-import { WorkflowWizard } from './components/WorkflowWizard';
+import { LoginScreen } from './components/LoginScreen';
+import { RepoSelectionScreen } from './components/RepoSelectionScreen';
+import { ExecutionScreen } from './components/ExecutionScreen';
 import { PullRequestModal } from './components/PullRequestModal';
 import {
   cancelTask,
@@ -18,12 +14,21 @@ import {
   submitTask,
 } from './services/api';
 import { CreateTaskPayload, HealthResponse, LogEntry, TaskReportResponse, TaskResponse } from './types/api';
-import { AlertCircle, Code2, Sparkles } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPRModalOpen, setIsPRModalOpen] = useState(false);
+
+  // Authenticated GitHub User session state (Null = show Login Screen first)
+  const [authUser, setAuthUser] = useState<{
+    username: string;
+    name: string;
+    avatar: string;
+    token: string;
+  } | null>(null);
 
   const [task, setTask] = useState<TaskResponse | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -32,8 +37,6 @@ export const App: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const fileDiffRef = useRef<HTMLDivElement>(null);
 
   // Health Check
   const refreshHealth = async () => {
@@ -62,7 +65,6 @@ export const App: React.FC = () => {
     const isRunning = statusUpper === 'RUNNING' || statusUpper === 'QUEUED';
 
     if (!isRunning) {
-      // If completed, fetch report if not already loaded
       if (statusUpper === 'COMPLETED' && !report) {
         getTaskReport(task.task_id)
           .then(setReport)
@@ -89,7 +91,7 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [task, report, logs]);
 
-  // Handle Form Submission
+  // Handle Task Submission
   const handleTaskSubmit = async (payload: CreateTaskPayload) => {
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -121,7 +123,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handle Reset / New Task
   const handleReset = () => {
     setTask(null);
     setLogs([]);
@@ -129,9 +130,10 @@ export const App: React.FC = () => {
     setErrorMsg(null);
   };
 
-  const scrollToDiff = () => {
-    fileDiffRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // SCREEN 1: Dedicated GitHub Login Page (Renders first until authenticated)
+  if (!authUser) {
+    return <LoginScreen onLoginSuccess={(user) => setAuthUser(user)} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0b0f19] text-gray-100 selection:bg-brand-blue selection:text-white">
@@ -152,67 +154,33 @@ export const App: React.FC = () => {
               <AlertCircle className="w-5 h-5 shrink-0" />
               <span>{errorMsg}</span>
             </div>
-            <button
-              onClick={() => setErrorMsg(null)}
-              className="text-xs underline hover:text-white"
-            >
+            <button onClick={() => setErrorMsg(null)} className="text-xs underline hover:text-white">
               Dismiss
             </button>
           </div>
         )}
 
-        {/* 5-Step Workflow Execution Wizard */}
-        <WorkflowWizard
-          onStartTask={handleTaskSubmit}
-          isRunning={isSubmitting || (task ? task.status.toUpperCase() === 'RUNNING' || task.status.toUpperCase() === 'QUEUED' : false)}
-          task={task}
-          onOpenPRModal={() => setIsPRModalOpen(true)}
-        />
+        {/* SCREEN 2: Repository Selection & Task Setup (When logged in and no active task) */}
+        {!task && (
+          <RepoSelectionScreen
+            user={authUser}
+            onSignOut={() => setAuthUser(null)}
+            onSubmitTask={handleTaskSubmit}
+            isRunning={isSubmitting}
+          />
+        )}
 
-        {/* Active Task Execution Dashboard */}
+        {/* SCREEN 3 & 4: Active Task Execution, Live Code Changes (Diffs), and Commit & Push */}
         {task && (
-          <div className="space-y-6">
-            {/* Task Status & Live Timeline Panel */}
-            <TaskExecutionPanel
-              task={task}
-              onCancelTask={handleCancelTask}
-              cancelling={cancelling}
-            />
-
-            {/* Grid: Terminal Logs & Test Results */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LiveLogsPanel
-                logs={logs}
-                onClearLogs={() => setLogs([])}
-                isRunning={task.status.toUpperCase() === 'RUNNING' || task.status.toUpperCase() === 'QUEUED'}
-              />
-
-              <div className="space-y-6">
-                <TestResultsPanel
-                  verificationStatus={task.verification_status}
-                  errorMessage={task.error_message}
-                />
-              </div>
-            </div>
-
-            {/* File Changes Panel */}
-            <div ref={fileDiffRef}>
-              <FileChangesPanel
-                filesModified={task.files_modified || []}
-                gitDiff={report?.json_report?.git_diff}
-              />
-            </div>
-
-            {/* Final Evaluation Report Panel */}
-            {(task.status.toUpperCase() === 'COMPLETED' || task.status.toUpperCase() === 'FAILED') && (
-              <ReportPanel
-                task={task}
-                report={report}
-                onReset={handleReset}
-                onScrollToDiff={scrollToDiff}
-              />
-            )}
-          </div>
+          <ExecutionScreen
+            task={task}
+            logs={logs}
+            report={report}
+            onCancelTask={handleCancelTask}
+            cancelling={cancelling}
+            onReset={handleReset}
+            onOpenPRModal={() => setIsPRModalOpen(true)}
+          />
         )}
       </main>
 
@@ -225,11 +193,10 @@ export const App: React.FC = () => {
       </footer>
 
       {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onSaved={refreshHealth}
-      />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onSaved={refreshHealth} />
+
+      {/* Pull Request Modal */}
+      <PullRequestModal isOpen={isPRModalOpen} task={task} onClose={() => setIsPRModalOpen(false)} />
     </div>
   );
 };
