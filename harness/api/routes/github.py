@@ -115,18 +115,10 @@ async def get_github_user(
             elif res.status_code == 404:
                 raise HTTPException(status_code=404, detail=f"GitHub user '{username}' not found.")
             elif res.status_code == 403:
-                # Rate limit fallback for username queries
-                if username:
-                    return {
-                        "authenticated": True,
-                        "username": username.strip(),
-                        "name": username.strip(),
-                        "avatar_url": f"https://github.com/{username.strip()}.png",
-                        "html_url": f"https://github.com/{username.strip()}",
-                        "public_repos": 5,
-                        "notice": "GitHub API unauthenticated rate limit reached. Proceeding with authenticated username.",
-                    }
-                raise HTTPException(status_code=403, detail="GitHub API rate limit exceeded. Please provide a Personal Access Token.")
+                raise HTTPException(
+                    status_code=403,
+                    detail="GitHub API unauthenticated rate limit reached. Please enter a Personal Access Token (PAT) or use GitHub OAuth login.",
+                )
             else:
                 raise HTTPException(status_code=res.status_code, detail=f"GitHub API Error: {res.text}")
     except HTTPException:
@@ -142,7 +134,7 @@ async def list_github_repos(
     token: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None),
 ):
-    """Lists ALL repositories dynamically belonging to the specified GitHub user account."""
+    """Lists ALL real repositories belonging to the specified GitHub user account."""
     auth_token = token
     if authorization and authorization.startswith("Bearer "):
         auth_token = authorization.split(" ")[1]
@@ -178,44 +170,11 @@ async def list_github_repos(
                         "private": r.get("private", False),
                     })
                 return repos
-            elif res.status_code == 403 and username:
-                # Fallback to local / known workspace repos if GitHub API rate limit triggers
-                target_user = username.strip()
-                return [
-                    {
-                        "id": 1,
-                        "name": "Basic_Calculator",
-                        "full_name": f"{target_user}/Basic_Calculator",
-                        "owner": target_user,
-                        "html_url": f"https://github.com/{target_user}/Basic_Calculator",
-                        "clone_url": f"https://github.com/{target_user}/Basic_Calculator.git",
-                        "default_branch": "main",
-                        "description": "Simple interactive JavaScript & CSS calculator project",
-                        "private": False,
-                    },
-                    {
-                        "id": 2,
-                        "name": "Loginform",
-                        "full_name": f"{target_user}/Loginform",
-                        "owner": target_user,
-                        "html_url": f"https://github.com/{target_user}/Loginform",
-                        "clone_url": f"https://github.com/{target_user}/Loginform.git",
-                        "default_branch": "main",
-                        "description": "Responsive HTML/CSS Login Form component",
-                        "private": False,
-                    },
-                    {
-                        "id": 3,
-                        "name": "CaffiPilot",
-                        "full_name": f"{target_user}/CaffiPilot",
-                        "owner": target_user,
-                        "html_url": f"https://github.com/{target_user}/CaffiPilot",
-                        "clone_url": f"https://github.com/{target_user}/CaffiPilot.git",
-                        "default_branch": "main",
-                        "description": "Autonomous AI Software Engineering Agent & Harness",
-                        "private": False,
-                    }
-                ]
+            elif res.status_code == 403:
+                raise HTTPException(
+                    status_code=403,
+                    detail="GitHub API rate limit reached for unauthenticated requests. Please provide your Personal Access Token (PAT) to load all your real repositories.",
+                )
             else:
                 raise HTTPException(status_code=res.status_code, detail=f"Failed to fetch repos: {res.text}")
     except HTTPException:

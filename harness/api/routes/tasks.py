@@ -137,13 +137,47 @@ async def create_task(
         repo_name = repo_input.split("/")[-1].replace(".git", "") or "cloned_repo"
         target_dir = os.path.abspath(os.path.join(os.getcwd(), "cloned_repos", repo_name))
         os.makedirs(os.path.dirname(target_dir), exist_ok=True)
+        
+        # Inject token into HTTPS git URL if token is available
+        auth_git_url = repo_input
+        auth_token = req.api_key if (req.api_key and req.api_key.startswith("ghp_")) else os.getenv("GITHUB_TOKEN")
+        if auth_token and repo_input.startswith("https://github.com/"):
+            auth_git_url = repo_input.replace("https://github.com/", f"https://x-access-token:{auth_token}@github.com/")
+
         if not os.path.exists(target_dir):
             clone_cmd = ["git", "clone"]
             if req.branch and req.branch.strip():
                 clone_cmd.extend(["-b", req.branch.strip()])
-            clone_cmd.extend([repo_input, target_dir])
-            proc = await asyncio.create_subprocess_exec(*clone_cmd)
+            clone_cmd.extend([auth_git_url, target_dir])
+            proc = await asyncio.create_subprocess_exec(
+                *clone_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                err_msg = stderr.decode().strip() or stdout.decode().strip()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to clone GitHub repository '{repo_input}': {err_msg}",
+                )
+        else:
+            # If target dir exists, fetch origin to ensure latest code
+            fetch_cmd = ["git", "-C", target_dir, "fetch", "origin"]
+            proc = await asyncio.create_subprocess_exec(
+                *fetch_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
             await proc.communicate()
+            if req.branch and req.branch.strip():
+                co_cmd = ["git", "-C", target_dir, "checkout", req.branch.strip()]
+                proc = await asyncio.create_subprocess_exec(
+                    *co_cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                await proc.communicate()
         repo_abs_path = target_dir
     else:
         repo_abs_path = os.path.abspath(req.repo_path or os.getcwd())
