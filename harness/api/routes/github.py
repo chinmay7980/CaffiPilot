@@ -225,7 +225,7 @@ async def create_pull_request(
     authorization: Optional[str] = Header(None),
     token: Optional[str] = Query(None),
 ):
-    """Commits changes to a new feature branch, pushes, and creates an official GitHub Pull Request."""
+    """Commits changes, pushes to user fork/origin, and opens an official GitHub Pull Request to ANY target public repository."""
     runner = active_runners.get(task_id)
     if not runner:
         raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found.")
@@ -246,51 +246,110 @@ async def create_pull_request(
     if authorization and authorization.startswith("Bearer "):
         auth_token = authorization.split(" ")[1]
 
+    if not auth_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Personal Access Token or GitHub OAuth token is required to create a Pull Request on public repositories.",
+        )
+
     try:
-        # 1. Create and checkout feature branch
+        # 1. Fetch authenticated user profile
+        auth_username = None
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": f"Bearer {auth_token}",
+        }
+        async with httpx.AsyncClient() as client:
+            user_res = await client.get("https://api.github.com/user", headers=headers)
+            if user_res.status_code == 200:
+                auth_username = user_res.json().get("login")
+
+        if not auth_username:
+            raise HTTPException(status_code=401, detail="Failed to verify authenticated GitHub user with provided token.")
+
+        # 2. Extract repository owner & repo name from origin URL
+        code_remote, remote_url, _ = await _run_git(repo_path, "remote", "get-url", "origin")
+        upstream_owner = None
+        repo_name = None
+        if code_remote == 0 and remote_url:
+            clean_url = (
+                remote_url.strip()
+                .replace("git@github.com:", "")
+                .replace("https://github.com/", "")
+                .replace(".git", "")
+            )
+            parts = clean_url.split("/")
+            if len(parts) >= 2:
+                upstream_owner = parts[-2]
+                repo_name = parts[-1]
+
+        if not upstream_owner or not repo_name:
+            raise HTTPException(status_code=400, detail="Could not determine target GitHub repository owner and name.")
+
+        # 3. Create & checkout feature branch locally and commit changes
         await _run_git(repo_path, "checkout", "-b", feature_branch)
         await _run_git(repo_path, "add", "-A")
         await _run_git(repo_path, "commit", "-m", pr_title, "--allow-empty")
-        code_push, _, err_push = await _run_git(repo_path, "push", "-u", "origin", feature_branch)
         _, sha, _ = await _run_git(repo_path, "rev-parse", "HEAD")
-
         commit_sha_short = sha.strip()[:7] if sha else "HEAD"
 
-        # 2. Extract repository owner & repo name from remote URL
-        code_remote, remote_url, _ = await _run_git(repo_path, "remote", "get-url", "origin")
-        repo_owner_name = None
-        if code_remote == 0 and remote_url:
-            clean_url = remote_url.strip().replace("git@github.com:", "").replace("https://github.com/", "").replace(".git", "")
-            parts = clean_url.split("/")
-            if len(parts) >= 2:
-                repo_owner_name = f"{parts[-2]}/{parts[-1]}"
-
-        # 3. Call GitHub API to create PR if token and repo are available
+        is_owner = auth_username.lower() == upstream_owner.lower()
+        pr_head_ref = feature_branch
         pr_url = None
         pr_number = None
 
-        if auth_token and repo_owner_name:
-            headers = {
-                "Accept": "application/vnd.github.v3+json",
-                "Authorization": f"Bearer {auth_token}",
-            }
+        if is_owner:
+            # Direct push to own repository
+            authenticated_origin = f"https://x-access-token:{auth_token}@github.com/{upstream_owner}/{repo_name}.git"
+            await _run_git(repo_path, "remote", "set-url", "origin", authenticated_origin)
+            code_push, _, err_push = await _run_git(repo_path, "push", "-u", "origin", feature_branch)
+            if code_push != 0:
+                logger.warning(f"Git push origin failed: {err_push}")
+            pr_head_ref = feature_branch
+        else:
+            # External Public Repo -> Fork repository to user account
             async with httpx.AsyncClient() as client:
-                res = await client.post(
-                    f"https://api.github.com/repos/{repo_owner_name}/pulls",
+                fork_res = await client.post(
+                    f"https://api.github.com/repos/{upstream_owner}/{repo_name}/forks",
                     headers=headers,
-                    json={
-                        "title": pr_title,
-                        "head": feature_branch,
-                        "base": target_branch,
-                        "body": pr_body,
-                    },
                 )
-                if res.status_code in (200, 201):
-                    pr_data = res.json()
-                    pr_url = pr_data.get("html_url")
-                    pr_number = pr_data.get("number")
+                if fork_res.status_code not in (200, 202):
+                    logger.warning(f"Fork API returned status {fork_res.status_code}: {fork_res.text}")
 
-        fallback_url = f"https://github.com/{repo_owner_name}/compare/{target_branch}...{feature_branch}" if repo_owner_name else f"https://github.com/compare/{target_branch}...{feature_branch}"
+            await asyncio.sleep(2)  # Wait for GitHub fork creation
+
+            # Set up fork remote and push feature branch to user fork
+            fork_url = f"https://x-access-token:{auth_token}@github.com/{auth_username}/{repo_name}.git"
+            await _run_git(repo_path, "remote", "remove", "fork")
+            await _run_git(repo_path, "remote", "add", "fork", fork_url)
+            code_push, _, err_push = await _run_git(repo_path, "push", "-u", "fork", feature_branch)
+            if code_push != 0:
+                # Retry push to fork
+                await asyncio.sleep(2)
+                await _run_git(repo_path, "push", "-u", "fork", feature_branch)
+
+            pr_head_ref = f"{auth_username}:{feature_branch}"
+
+        # 4. Create Pull Request on upstream repository via GitHub REST API
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                f"https://api.github.com/repos/{upstream_owner}/{repo_name}/pulls",
+                headers=headers,
+                json={
+                    "title": pr_title,
+                    "head": pr_head_ref,
+                    "base": target_branch,
+                    "body": pr_body,
+                },
+            )
+            if res.status_code in (200, 201):
+                pr_data = res.json()
+                pr_url = pr_data.get("html_url")
+                pr_number = pr_data.get("number")
+            else:
+                logger.warning(f"GitHub Pull Request API returned status {res.status_code}: {res.text}")
+                # Fallback URL if PR already exists or needs manual submission
+                pr_url = f"https://github.com/{upstream_owner}/{repo_name}/compare/{target_branch}...{pr_head_ref}"
 
         return {
             "success": True,
@@ -299,10 +358,13 @@ async def create_pull_request(
             "feature_branch": feature_branch,
             "target_branch": target_branch,
             "title": pr_title,
-            "pr_url": pr_url or fallback_url,
+            "pr_url": pr_url or f"https://github.com/{upstream_owner}/{repo_name}/pulls",
             "pr_number": pr_number,
-            "message": f"Successfully created branch '{feature_branch}', committed changes, and opened Pull Request!",
+            "is_fork": not is_owner,
+            "message": f"Successfully created branch '{feature_branch}', committed changes, and opened Pull Request on {upstream_owner}/{repo_name}!",
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Create PR failed for task {task_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create Pull Request: {str(e)}")
