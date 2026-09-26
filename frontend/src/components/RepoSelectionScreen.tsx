@@ -9,13 +9,13 @@ import {
   Search,
   CheckCircle2,
   FolderGit2,
-  Lock,
-  Globe,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { CreateTaskPayload } from '../types/api';
 
 interface RepoSelectionScreenProps {
-  user: { username: string; name: string; avatar: string; token: string };
+  user: { username: string; name: string; avatar: string; token: string; reposCount?: number };
   onSignOut: () => void;
   onSubmitTask: (payload: CreateTaskPayload) => void;
   isRunning: boolean;
@@ -29,33 +29,46 @@ export const RepoSelectionScreen: React.FC<RepoSelectionScreenProps> = ({
 }) => {
   const [repos, setRepos] = useState<Array<{ id: number; name: string; full_name: string; clone_url: string; default_branch: string; description: string; private: boolean }>>([]);
   const [loadingRepos, setLoadingRepos] = useState<boolean>(true);
+  const [reposError, setReposError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  const [selectedRepoUrl, setSelectedRepoUrl] = useState<string>('https://github.com/VanshSharma88/Basic_Calculator.git');
+  const [selectedRepoUrl, setSelectedRepoUrl] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<string>('main');
-  const [taskPrompt, setTaskPrompt] = useState<string>('make the UI of calculator black and white');
+  const [taskPrompt, setTaskPrompt] = useState<string>('');
 
-  // Load user repositories dynamically from GitHub API
-  useEffect(() => {
-    const fetchRepos = async () => {
-      setLoadingRepos(true);
-      try {
-        const res = await fetch(
-          `http://127.0.0.1:8000/api/v1/github/repos?username=${encodeURIComponent(user.username)}&token=${encodeURIComponent(user.token)}`
-        );
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setRepos(data);
-          setSelectedRepoUrl(data[0].clone_url || `https://github.com/${data[0].full_name}.git`);
-          setSelectedBranch(data[0].default_branch || 'main');
-        }
-      } catch (err) {
-        console.warn('Failed to load user repos:', err);
-      } finally {
-        setLoadingRepos(false);
+  // Fetch ALL repositories dynamically for the authenticated user
+  const loadUserRepos = async () => {
+    setLoadingRepos(true);
+    setReposError(null);
+    try {
+      const url = user.token
+        ? `http://127.0.0.1:8000/api/v1/github/repos?token=${encodeURIComponent(user.token)}`
+        : `http://127.0.0.1:8000/api/v1/github/repos?username=${encodeURIComponent(user.username)}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to fetch repositories from GitHub.');
       }
-    };
-    fetchRepos();
+
+      if (Array.isArray(data) && data.length > 0) {
+        setRepos(data);
+        setSelectedRepoUrl(data[0].clone_url || `https://github.com/${data[0].full_name}.git`);
+        setSelectedBranch(data[0].default_branch || 'main');
+      } else {
+        setRepos([]);
+        setReposError('No repositories found for this GitHub account.');
+      }
+    } catch (err: any) {
+      setReposError(err.message || 'Failed to load user repositories from GitHub.');
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUserRepos();
   }, [user]);
 
   const filteredRepos = repos.filter(
@@ -66,7 +79,15 @@ export const RepoSelectionScreen: React.FC<RepoSelectionScreenProps> = ({
 
   const handleLaunch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskPrompt.trim()) return;
+    if (!selectedRepoUrl.trim()) {
+      alert('Please select or enter a GitHub repository URL.');
+      return;
+    }
+    if (!taskPrompt.trim()) {
+      alert('Please enter a task description / issue to resolve.');
+      return;
+    }
+
     onSubmitTask({
       git_url: selectedRepoUrl,
       branch: selectedBranch,
@@ -78,89 +99,112 @@ export const RepoSelectionScreen: React.FC<RepoSelectionScreenProps> = ({
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
-      {/* Authenticated User Header Banner */}
-      <div className="bg-dark-800/90 border border-dark-700/80 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <img src={user.avatar} alt={user.username} className="w-10 h-10 rounded-full border border-dark-600 shadow-md" />
+    <div className="w-full max-w-5xl mx-auto space-y-6 font-sans">
+      {/* User Header Profile Card */}
+      <div className="bg-[#0f1422]/90 border border-dark-600/70 rounded-3xl p-5 shadow-2xl flex flex-wrap items-center justify-between gap-4 backdrop-blur-xl">
+        <div className="flex items-center gap-4">
+          <img
+            src={user.avatar}
+            alt={user.username}
+            className="w-12 h-12 rounded-2xl border-2 border-brand-cyan/40 shadow-lg object-cover"
+          />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white">{user.name}</h2>
-              <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                Connected
+              <h2 className="text-base font-extrabold text-white">{user.name}</h2>
+              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Authenticated
               </span>
             </div>
-            <p className="text-xs text-gray-400">@{user.username} &bull; {repos.length} Repositories Authorized</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              @{user.username} &bull; {repos.length} Public & Private Repositories Loaded
+            </p>
           </div>
         </div>
 
-        <button
-          onClick={onSignOut}
-          className="px-3.5 py-1.5 bg-dark-700 hover:bg-dark-600 text-gray-300 text-xs font-semibold rounded-xl flex items-center gap-2 border border-dark-600 transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadUserRepos}
+            title="Refresh Repositories"
+            className="p-2.5 bg-[#090c14] hover:bg-dark-700 text-gray-300 rounded-2xl border border-dark-600 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingRepos ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={onSignOut}
+            className="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-gray-200 text-xs font-semibold rounded-2xl flex items-center gap-2 border border-dark-600 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        </div>
       </div>
 
-      {/* Main Grid: Repository Picker & Task Input */}
-      <div className="bg-dark-800/90 border border-dark-700/80 rounded-2xl p-6 shadow-2xl space-y-6">
+      {/* Main Container: Repository Picker & Task Prompt Form */}
+      <div className="bg-[#0f1422]/90 border border-dark-600/70 rounded-3xl p-7 shadow-2xl space-y-6 backdrop-blur-xl">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-cyan">Step 1 of 2</span>
-            <h3 className="text-base font-bold text-white">Select a Repository from @{user.username}</h3>
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-cyan bg-brand-cyan/10 px-2 py-0.5 rounded-md border border-brand-cyan/20">
+              Step 1 of 2
+            </span>
+            <h3 className="text-base font-extrabold text-white">Select a Repository from @{user.username}</h3>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            Choose the target repository where the AI agent will implement code modifications.
+            Choose a target repository from your account where the AI agent will implement code modifications.
           </p>
         </div>
 
-        {/* Repository Filter & List */}
+        {/* Repository Search & Filter */}
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search your repositories (e.g. Basic_Calculator, Loginform)..."
-                className="w-full bg-dark-900 border border-dark-600 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                className="w-full bg-[#090c14] border border-dark-600 rounded-2xl pl-10 pr-3.5 py-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-blue"
               />
             </div>
-            <div className="w-36">
+            <div className="w-full sm:w-40">
               <input
                 type="text"
                 value={selectedBranch}
                 onChange={(e) => setSelectedBranch(e.target.value)}
                 placeholder="Branch: main"
-                className="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                className="w-full bg-[#090c14] border border-dark-600 rounded-2xl px-3.5 py-3 text-xs text-white focus:outline-none focus:border-brand-blue"
               />
             </div>
           </div>
 
-          {/* Repositories Cards List */}
+          {/* Repositories Cards Grid */}
           {loadingRepos ? (
-            <div className="p-8 text-center bg-dark-900/50 border border-dark-700 rounded-xl text-xs text-gray-400 space-y-2">
-              <Loader2 className="w-6 h-6 animate-spin text-brand-cyan mx-auto" />
-              <p>Fetching repositories directly from GitHub API for @{user.username}...</p>
+            <div className="p-10 text-center bg-[#090c14]/50 border border-dark-700 rounded-2xl text-xs text-gray-400 space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-brand-cyan mx-auto" />
+              <p className="font-semibold text-white">Fetching repositories from GitHub for @{user.username}...</p>
+            </div>
+          ) : reposError ? (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{reposError}</span>
             </div>
           ) : filteredRepos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
               {filteredRepos.map((r) => {
-                const isSelected = selectedRepoUrl === (r.clone_url || `https://github.com/${r.full_name}.git`);
+                const cloneUrl = r.clone_url || `https://github.com/${r.full_name}.git`;
+                const isSelected = selectedRepoUrl === cloneUrl;
                 return (
                   <button
                     type="button"
                     key={r.id || r.name}
                     onClick={() => {
-                      setSelectedRepoUrl(r.clone_url || `https://github.com/${r.full_name}.git`);
+                      setSelectedRepoUrl(cloneUrl);
                       setSelectedBranch(r.default_branch || 'main');
                     }}
-                    className={`p-3.5 rounded-xl border text-left transition-all ${
+                    className={`p-4 rounded-2xl border text-left transition-all ${
                       isSelected
-                        ? 'bg-brand-blue/10 border-brand-blue shadow-md ring-1 ring-brand-blue/40'
-                        : 'bg-dark-900/60 border-dark-700 hover:border-dark-600'
+                        ? 'bg-brand-blue/15 border-brand-blue shadow-lg ring-1 ring-brand-blue/40'
+                        : 'bg-[#090c14]/60 border-dark-700 hover:border-dark-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -171,10 +215,10 @@ export const RepoSelectionScreen: React.FC<RepoSelectionScreenProps> = ({
                       {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-cyan shrink-0" />}
                     </div>
                     {r.description && (
-                      <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">{r.description}</p>
+                      <p className="text-[11px] text-gray-400 mt-1.5 line-clamp-1">{r.description}</p>
                     )}
-                    <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-500">
-                      <GitBranch className="w-3 h-3" />
+                    <div className="flex items-center gap-2 mt-2.5 text-[10px] text-gray-500 font-mono">
+                      <GitBranch className="w-3 h-3 text-gray-400" />
                       <span>{r.default_branch || 'main'}</span>
                     </div>
                   </button>
@@ -182,52 +226,54 @@ export const RepoSelectionScreen: React.FC<RepoSelectionScreenProps> = ({
               })}
             </div>
           ) : (
-            <div className="p-4 bg-dark-900 border border-dark-700 rounded-xl text-xs text-gray-400">
-              No matching repositories found. You can also paste any GitHub repository URL below.
+            <div className="p-4 bg-[#090c14] border border-dark-700 rounded-2xl text-xs text-gray-400">
+              No repositories found. Enter custom clone URL below.
             </div>
           )}
 
           <div>
             <label className="block text-[11px] font-semibold text-gray-300 mb-1">
-              Or Custom GitHub Repository Clone URL
+              Selected Repository Clone URL
             </label>
             <input
               type="text"
               value={selectedRepoUrl}
               onChange={(e) => setSelectedRepoUrl(e.target.value)}
-              placeholder="https://github.com/VanshSharma88/Basic_Calculator.git"
-              className="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+              placeholder="https://github.com/username/repository.git"
+              className="w-full bg-[#090c14] border border-dark-600 rounded-2xl px-3.5 py-3 text-xs text-white focus:outline-none focus:border-brand-blue font-mono"
             />
           </div>
         </div>
 
-        {/* Task Prompt Form */}
-        <form onSubmit={handleLaunch} className="pt-4 border-t border-dark-700/60 space-y-4">
+        {/* Task Issue Form */}
+        <form onSubmit={handleLaunch} className="pt-5 border-t border-dark-700/60 space-y-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-cyan">Step 2 of 2</span>
-              <h3 className="text-sm font-bold text-white">Describe the Task / Issue</h3>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-purple bg-brand-purple/10 px-2 py-0.5 rounded-md border border-brand-purple/20">
+                Step 2 of 2
+              </span>
+              <h3 className="text-sm font-extrabold text-white">Describe the Task / Issue to Resolve</h3>
             </div>
             <textarea
               rows={3}
               required
               value={taskPrompt}
               onChange={(e) => setTaskPrompt(e.target.value)}
-              placeholder="Describe what changes you want the AI agent to implement (e.g. 'Make the UI of calculator black and white' or 'Fix login authentication')..."
-              className="w-full bg-dark-900 border border-dark-600 rounded-xl p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-blue resize-none"
+              placeholder="Describe what changes you want the AI agent to implement (e.g. 'Fix login authentication bug', 'Make UI black and white')..."
+              className="w-full bg-[#090c14] border border-dark-600 rounded-2xl p-3.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-blue resize-none"
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[11px] text-gray-400">
-              <Sparkles className="w-3.5 h-3.5 text-brand-purple" />
-              <span>Target: {selectedRepoUrl.split('/').pop()?.replace('.git', '') || 'Selected Repo'}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[11px] text-gray-400 font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-brand-purple animate-pulse" />
+              <span>Target Repository: {selectedRepoUrl.split('/').pop()?.replace('.git', '') || 'None'}</span>
             </div>
 
             <button
               type="submit"
-              disabled={isRunning}
-              className="px-6 py-3 bg-gradient-to-r from-brand-blue to-brand-purple text-white text-xs font-bold rounded-xl hover:opacity-95 flex items-center gap-2 shadow-lg shadow-brand-blue/20 transition-opacity disabled:opacity-50"
+              disabled={isRunning || !selectedRepoUrl}
+              className="px-6 py-3 bg-gradient-to-r from-brand-blue via-brand-purple to-cyan-500 text-white text-xs font-extrabold rounded-2xl hover:opacity-95 flex items-center gap-2 shadow-xl shadow-brand-blue/20 transition-all disabled:opacity-50 active:scale-[0.98]"
             >
               {isRunning ? (
                 <>
