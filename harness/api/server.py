@@ -8,6 +8,7 @@ from harness import __version__
 from harness.api.routes.health import router as health_router
 from harness.api.routes.logs import router as logs_router
 from harness.api.routes.tasks import router as tasks_router
+from harness.api.routes.github import router as github_router
 from harness.config import settings
 
 # Configure logging
@@ -48,6 +49,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(tasks_router)
 app.include_router(logs_router)
+app.include_router(github_router)
 
 
 if __name__ == "__main__":

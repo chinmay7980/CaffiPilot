@@ -7,6 +7,8 @@ import { LiveLogsPanel } from './components/LiveLogsPanel';
 import { FileChangesPanel } from './components/FileChangesPanel';
 import { TestResultsPanel } from './components/TestResultsPanel';
 import { ReportPanel } from './components/ReportPanel';
+import { WorkflowWizard } from './components/WorkflowWizard';
+import { PullRequestModal } from './components/PullRequestModal';
 import {
   cancelTask,
   checkHealth,
@@ -22,6 +24,7 @@ export const App: React.FC = () => {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPRModalOpen, setIsPRModalOpen] = useState(false);
 
   const [task, setTask] = useState<TaskResponse | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -159,27 +162,15 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Top: Repository Input Form */}
-        <RepositoryForm
-          onSubmit={handleTaskSubmit}
+        {/* 5-Step Workflow Execution Wizard */}
+        <WorkflowWizard
+          onStartTask={handleTaskSubmit}
           isRunning={isSubmitting || (task ? task.status.toUpperCase() === 'RUNNING' || task.status.toUpperCase() === 'QUEUED' : false)}
-          disabled={!health && !loadingHealth}
+          activeStep={task ? (task.status.toUpperCase() === 'COMPLETED' ? 5 : 4) : 1}
+          taskStatus={task?.status?.toLowerCase() || null}
+          filesModifiedCount={task?.files_modified?.length || 0}
+          onOpenPRModal={() => setIsPRModalOpen(true)}
         />
-
-        {/* Empty State before submission */}
-        {!task && !isSubmitting && (
-          <div className="bg-dark-800/50 border border-dark-700/60 border-dashed rounded-2xl p-12 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 border border-brand-blue/20 text-brand-cyan flex items-center justify-center mx-auto">
-              <Sparkles className="w-6 h-6 animate-pulse" />
-            </div>
-            <div className="space-y-1 max-w-md mx-auto">
-              <h3 className="text-base font-semibold text-white">No Active Task Running</h3>
-              <p className="text-xs text-gray-400">
-                Submit a Git Repository URL or local repo path above to launch autonomous AI agent exploration, editing, and test verification.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Active Task Execution Dashboard */}
         {task && (
@@ -241,6 +232,13 @@ export const App: React.FC = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSaved={refreshHealth}
+      />
+
+      {/* GitHub PR Modal */}
+      <PullRequestModal
+        isOpen={isPRModalOpen}
+        task={task}
+        onClose={() => setIsPRModalOpen(false)}
       />
     </div>
   );
