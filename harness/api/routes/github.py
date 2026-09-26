@@ -256,3 +256,94 @@ async def commit_and_push_changes(task_id: str, req: CommitPushRequest):
     except Exception as e:
         logger.error(f"Commit & Push failed for task {task_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Commit & push failed: {str(e)}")
+
+
+@router.post("/create-pr/{task_id}")
+@router.post("/commit-and-pr/{task_id}")
+async def create_pull_request(
+    task_id: str,
+    req: CreatePRRequest,
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+):
+    """Commits changes to a new feature branch, pushes, and creates an official GitHub Pull Request."""
+    runner = active_runners.get(task_id)
+    if not runner:
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found.")
+
+    repo_path = runner.state.repo_path
+    feature_branch = req.branch_name or f"caffipilot/feature-{task_id[-6:]}"
+    target_branch = req.target_branch or "main"
+    pr_title = req.title or f"feat(ai-agent): {runner.state.issue_description}"
+    pr_body = req.body or (
+        f"## 🤖 Autonomous AI Agent Code Modifications\n\n"
+        f"**Task ID**: `{task_id}`\n"
+        f"**Issue Prompt**: {runner.state.issue_description}\n"
+        f"**Files Changed**: {', '.join(runner.state.files_modified) if runner.state.files_modified else 'Workspace code updates'}\n\n"
+        f"---\n*Generated automatically by CaffiPilot AI Coding Harness.*"
+    )
+
+    auth_token = token or os.getenv("GITHUB_TOKEN")
+    if authorization and authorization.startswith("Bearer "):
+        auth_token = authorization.split(" ")[1]
+
+    try:
+        # 1. Create and checkout feature branch
+        await _run_git(repo_path, "checkout", "-b", feature_branch)
+        await _run_git(repo_path, "add", "-A")
+        await _run_git(repo_path, "commit", "-m", pr_title, "--allow-empty")
+        code_push, _, err_push = await _run_git(repo_path, "push", "-u", "origin", feature_branch)
+        _, sha, _ = await _run_git(repo_path, "rev-parse", "HEAD")
+
+        commit_sha_short = sha.strip()[:7] if sha else "HEAD"
+
+        # 2. Extract repository owner & repo name from remote URL
+        code_remote, remote_url, _ = await _run_git(repo_path, "remote", "get-url", "origin")
+        repo_owner_name = None
+        if code_remote == 0 and remote_url:
+            clean_url = remote_url.strip().replace("git@github.com:", "").replace("https://github.com/", "").replace(".git", "")
+            parts = clean_url.split("/")
+            if len(parts) >= 2:
+                repo_owner_name = f"{parts[-2]}/{parts[-1]}"
+
+        # 3. Call GitHub API to create PR if token and repo are available
+        pr_url = None
+        pr_number = None
+
+        if auth_token and repo_owner_name:
+            headers = {
+                "Accept": "application/vnd.github.v3+json",
+                "Authorization": f"Bearer {auth_token}",
+            }
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    f"https://api.github.com/repos/{repo_owner_name}/pulls",
+                    headers=headers,
+                    json={
+                        "title": pr_title,
+                        "head": feature_branch,
+                        "base": target_branch,
+                        "body": pr_body,
+                    },
+                )
+                if res.status_code in (200, 201):
+                    pr_data = res.json()
+                    pr_url = pr_data.get("html_url")
+                    pr_number = pr_data.get("number")
+
+        fallback_url = f"https://github.com/{repo_owner_name}/compare/{target_branch}...{feature_branch}" if repo_owner_name else f"https://github.com/compare/{target_branch}...{feature_branch}"
+
+        return {
+            "success": True,
+            "task_id": task_id,
+            "commit_sha": commit_sha_short,
+            "feature_branch": feature_branch,
+            "target_branch": target_branch,
+            "title": pr_title,
+            "pr_url": pr_url or fallback_url,
+            "pr_number": pr_number,
+            "message": f"Successfully created branch '{feature_branch}', committed changes, and opened Pull Request!",
+        }
+    except Exception as e:
+        logger.error(f"Create PR failed for task {task_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create Pull Request: {str(e)}")

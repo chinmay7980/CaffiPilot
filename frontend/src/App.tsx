@@ -196,6 +196,7 @@ export const App: React.FC = () => {
             cancelling={cancelling}
             onReset={handleReset}
             onOpenPRModal={() => setIsPRModalOpen(true)}
+            userToken={authUser.token}
           />
         )}
       </main>

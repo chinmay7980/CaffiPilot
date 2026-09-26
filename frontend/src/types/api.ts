@@ -24,7 +24,7 @@ export interface CreateTaskPayload {
 }
 
 export interface TaskResponse {
-  task_id: str;
+  task_id: string;
   issue_description?: string;
   status: TaskStatus;
   repo_path: string;
@@ -37,6 +37,7 @@ export interface TaskResponse {
   execution_plan: string[];
   model: string;
   files_modified: string[];
+  git_diff?: string;
   final_summary?: string;
   final_result?: string;
   verification_status?: string;
