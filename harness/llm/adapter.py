@@ -123,7 +123,9 @@ class LLMAdapter(BaseLLMClient):
 
         if tools and len(tools) > 0:
             payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+            # Omit tool_choice="auto" for local Ollama endpoints to prevent 400 invalid tool arguments
+            if "127.0.0.1" not in self.base_url and "localhost" not in self.base_url:
+                payload["tool_choice"] = "auto"
 
         # Execute call with bounded retries and exponential backoff
         return await self._execute_with_retry(payload, formatted_messages)

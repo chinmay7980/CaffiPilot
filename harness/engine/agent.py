@@ -1,6 +1,7 @@
 """Core autonomous agent execution loop with ReAct orchestration."""
 
 import asyncio
+import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
 from harness.config import settings
@@ -175,7 +176,7 @@ class AgentRunner:
                 {
                     "id": tc.id,
                     "type": "function",
-                    "function": {"name": tc.name, "arguments": str(tc.arguments)},
+                    "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
                 }
                 for tc in response.tool_calls
             ]

@@ -132,12 +132,26 @@ async def create_task(
 
     Supports both asynchronous execution (default, status 202) and synchronous evaluation mode (wait=true, status 200).
     """
-    repo_abs_path = os.path.abspath(req.repo_path)
-    if not os.path.exists(repo_abs_path):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Repository path does not exist on server: {req.repo_path}",
-        )
+    repo_input = (req.git_url or req.repo_path or "").strip()
+    if repo_input.startswith("http://") or repo_input.startswith("https://") or repo_input.startswith("git@"):
+        repo_name = repo_input.split("/")[-1].replace(".git", "") or "cloned_repo"
+        target_dir = os.path.abspath(os.path.join(os.getcwd(), "cloned_repos", repo_name))
+        os.makedirs(os.path.dirname(target_dir), exist_ok=True)
+        if not os.path.exists(target_dir):
+            clone_cmd = ["git", "clone"]
+            if req.branch and req.branch.strip():
+                clone_cmd.extend(["-b", req.branch.strip()])
+            clone_cmd.extend([repo_input, target_dir])
+            proc = await asyncio.create_subprocess_exec(*clone_cmd)
+            await proc.communicate()
+        repo_abs_path = target_dir
+    else:
+        repo_abs_path = os.path.abspath(req.repo_path or os.getcwd())
+        if not os.path.exists(repo_abs_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Repository path does not exist on server: {req.repo_path}",
+            )
 
     task_id = f"task_{uuid.uuid4().hex[:8]}"
 

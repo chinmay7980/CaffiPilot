@@ -28,7 +28,8 @@ class CreateTaskRequest(BaseModel):
     github_issue: Optional[str] = Field(default=None, description="Alias for issue_description")
     repo: Optional[str] = Field(default=None, description="Alias for repo_path")
     workspace: Optional[str] = Field(default=None, description="Alias for repo_path")
-
+    git_url: Optional[str] = Field(default=None, description="Optional Git repository URL to clone")
+    branch: Optional[str] = Field(default=None, description="Optional Git branch name to checkout")
     model: Optional[str] = Field(
         default=None,
         description="Optional model override (defaults to AI_MODEL env var)",
@@ -68,6 +69,9 @@ class CreateTaskRequest(BaseModel):
 
         resolved_repo = self.repo_path or self.repo or self.workspace or os.getcwd()
         self.repo_path = os.path.abspath(resolved_repo)
+        if not self.model or not str(self.model).strip():
+            from harness.config import settings
+            self.model = settings.ai_model
         return self
 
 
