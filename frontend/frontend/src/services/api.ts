@@ -8,7 +8,7 @@ export function getApiBaseUrl(): string {
     return saved.trim().replace(/\/+$/, '');
   }
   const metaEnv = (import.meta as any).env;
-  return (metaEnv?.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  return (metaEnv?.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 }
 
 export function setApiBaseUrl(url: string): void {
