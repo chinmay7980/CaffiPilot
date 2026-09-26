@@ -82,25 +82,36 @@ export const App: React.FC = () => {
   const [actionStatus, setActionStatus] = useState<{ success: boolean; message: string; url?: string } | null>(null);
   const [diffCopied, setDiffCopied] = useState<boolean>(false);
 
-  // Auto-verify OAuth redirect query parameters
+  // Auto-verify OAuth redirect query parameters or stored token
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const oauthToken = params.get('token');
-    const paramUsername = params.get('username') || 'VanshSharma88';
+    const oauthToken = params.get('token') || localStorage.getItem('github_token');
+    const paramUsername = params.get('username');
 
-    if (oauthToken || paramUsername) {
-      const url = oauthToken
-        ? `http://127.0.0.1:8000/api/v1/github/user?token=${encodeURIComponent(oauthToken)}`
-        : `http://127.0.0.1:8000/api/v1/github/user?username=${encodeURIComponent(paramUsername)}`;
-
-      fetch(url)
+    if (oauthToken) {
+      localStorage.setItem('github_token', oauthToken);
+      fetch(`http://127.0.0.1:8000/api/v1/github/user?token=${encodeURIComponent(oauthToken)}`)
         .then((r) => r.json())
         .then((data) => {
           if (data.authenticated) {
             setAuthUser({
               username: data.username,
               avatar: data.avatar_url || `https://github.com/${data.username}.png`,
-              token: oauthToken || '',
+              token: oauthToken,
+            });
+          }
+        })
+        .catch(() => {});
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paramUsername) {
+      fetch(`http://127.0.0.1:8000/api/v1/github/user?username=${encodeURIComponent(paramUsername)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.authenticated) {
+            setAuthUser({
+              username: data.username,
+              avatar: data.avatar_url || `https://github.com/${data.username}.png`,
+              token: '',
             });
           }
         })
@@ -179,6 +190,9 @@ export const App: React.FC = () => {
         throw new Error(data.detail || data.message || 'Failed to authenticate GitHub user.');
       }
 
+      if (token) {
+        localStorage.setItem('github_token', token);
+      }
       setAuthUser({
         username: data.username,
         avatar: data.avatar_url || `https://github.com/${data.username}.png`,
@@ -229,12 +243,26 @@ export const App: React.FC = () => {
   // Direct Commit & Push
   const handleCommitPush = async () => {
     if (!task) return;
+    let tokenToUse: string = authUser?.token || '';
+    if (!tokenToUse) {
+      const enteredToken = window.prompt('Please enter your GitHub Personal Access Token (PAT) to authorize git commit & push:');
+      if (enteredToken && enteredToken.trim()) {
+        tokenToUse = enteredToken.trim();
+        const activeToken = tokenToUse;
+        setAuthUser((prev) => (prev ? { ...prev, token: activeToken } : null));
+      }
+    }
+
     setCommitting(true);
     setActionStatus(null);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/github/commit-and-push/${task.task_id}`, {
+      const tokenQuery = tokenToUse ? `?token=${encodeURIComponent(tokenToUse)}` : '';
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/github/commit-and-push/${task.task_id}${tokenQuery}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tokenToUse ? { Authorization: `Bearer ${tokenToUse}` } : {}),
+        },
         body: JSON.stringify({
           commit_message: commitMsg || `feat(ai-agent): ${task.issue_description}`,
           branch_name: branch || 'main',
@@ -259,17 +287,37 @@ export const App: React.FC = () => {
   // Commit & Create Pull Request
   const handleCommitAndPR = async () => {
     if (!task) return;
+    let tokenToUse: string = authUser?.token || localStorage.getItem('github_token') || '';
+    if (!tokenToUse) {
+      const enteredToken = window.prompt('Please enter your GitHub Personal Access Token (PAT) to authorize opening a Pull Request on GitHub:');
+      if (!enteredToken || !enteredToken.trim()) {
+        setActionStatus({
+          success: false,
+          message: 'A GitHub Personal Access Token (PAT) or OAuth token is required to open a Pull Request.',
+        });
+        return;
+      }
+      tokenToUse = enteredToken.trim();
+      localStorage.setItem('github_token', tokenToUse);
+      const activeToken = tokenToUse;
+      setAuthUser((prev) => (prev ? { ...prev, token: activeToken } : null));
+    }
+
     setCreatingPR(true);
     setActionStatus(null);
     try {
-      const tokenQuery = authUser?.token ? `?token=${encodeURIComponent(authUser.token)}` : '';
+      const tokenQuery = tokenToUse ? `?token=${encodeURIComponent(tokenToUse)}` : '';
       const res = await fetch(`http://127.0.0.1:8000/api/v1/github/commit-and-pr/${task.task_id}${tokenQuery}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tokenToUse ? { Authorization: `Bearer ${tokenToUse}` } : {}),
+        },
         body: JSON.stringify({
           title: commitMsg || `feat(ai-agent): ${task.issue_description}`,
           target_branch: branch || 'main',
           branch_name: `caffipilot/patch-${task.task_id.replace('task_', '')}`,
+          token: tokenToUse,
         }),
       });
       const data = await res.json();
@@ -322,7 +370,10 @@ export const App: React.FC = () => {
               <img src={authUser.avatar} alt={authUser.username} className="w-6 h-6 rounded-full object-cover" />
               <span className="text-xs font-bold text-white">@{authUser.username}</span>
               <button
-                onClick={() => setAuthUser(null)}
+                onClick={() => {
+                  localStorage.removeItem('github_token');
+                  setAuthUser(null);
+                }}
                 className="text-[11px] text-rose-400 hover:underline font-semibold ml-2"
               >
                 Sign Out
@@ -338,8 +389,8 @@ export const App: React.FC = () => {
         {!authUser ? (
           <div className="max-w-md mx-auto my-12 space-y-6">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-black text-white">GitHub Authentication</h2>
-              <p className="text-xs text-gray-400">Verify your GitHub Username or Personal Access Token to continue</p>
+              <h2 className="text-2xl font-black text-white">GitHub Account Login</h2>
+              <p className="text-xs text-gray-400">Sign in with your official GitHub Account (1-Click OAuth)</p>
             </div>
 
             <div className="bg-[#0f1422] border border-dark-600 rounded-3xl p-7 shadow-2xl space-y-5">
@@ -350,17 +401,38 @@ export const App: React.FC = () => {
                 </div>
               )}
 
+              <div className="bg-gradient-to-r from-brand-blue/20 to-purple-500/20 border border-brand-blue/30 p-4 rounded-2xl text-xs text-cyan-200 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-white">
+                  <Sparkles className="w-4 h-4 text-cyan-300" /> Recommended: 1-Click GitHub Login
+                </p>
+                <p className="text-[11px] text-gray-300">
+                  Select your GitHub account to log in directly. No Personal Access Token (PAT) needed!
+                </p>
+              </div>
+
               <button
-                onClick={() => (window.location.href = 'http://127.0.0.1:8000/api/v1/github/oauth/login')}
-                className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-dark-900 font-extrabold text-xs rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('http://127.0.0.1:8000/api/v1/github/oauth/login', { redirect: 'manual' });
+                    if (res.status === 400) {
+                      const data = await res.json();
+                      setAuthError(data.detail || 'GITHUB_CLIENT_ID not configured in backend environment.');
+                    } else {
+                      window.location.href = 'http://127.0.0.1:8000/api/v1/github/oauth/login';
+                    }
+                  } catch (err: any) {
+                    window.location.href = 'http://127.0.0.1:8000/api/v1/github/oauth/login';
+                  }
+                }}
+                className="w-full py-3.5 px-4 bg-white hover:bg-gray-100 text-dark-900 font-extrabold text-xs rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl hover:scale-[1.01]"
               >
-                <Github className="w-4 h-4" />
-                <span>Sign in with Official GitHub OAuth</span>
+                <Github className="w-5 h-5" />
+                <span>Sign in with Official GitHub Account</span>
               </button>
 
               <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t border-dark-700"></div>
-                <span className="mx-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">or verify credentials</span>
+                <span className="mx-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">or manually enter username</span>
                 <div className="flex-grow border-t border-dark-700"></div>
               </div>
 

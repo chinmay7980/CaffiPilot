@@ -38,6 +38,14 @@ class CreateTaskRequest(BaseModel):
         default=None,
         description="Optional API key override (defaults to AI_API_KEY env var)",
     )
+    github_token: Optional[str] = Field(
+        default=None,
+        description="Optional GitHub Personal Access Token for git cloning & PR creation",
+    )
+    token: Optional[str] = Field(
+        default=None,
+        description="Alias for github_token",
+    )
     base_url: Optional[str] = Field(
         default=None,
         description="Optional base URL override (defaults to AI_BASE_URL env var)",

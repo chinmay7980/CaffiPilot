@@ -140,7 +140,7 @@ async def create_task(
         
         # Inject token into HTTPS git URL if token is available
         auth_git_url = repo_input
-        auth_token = req.api_key if (req.api_key and req.api_key.startswith("ghp_")) else os.getenv("GITHUB_TOKEN")
+        auth_token = req.github_token or req.token or (req.api_key if (req.api_key and (req.api_key.startswith("ghp_") or req.api_key.startswith("github_pat_"))) else os.getenv("GITHUB_TOKEN"))
         if auth_token and repo_input.startswith("https://github.com/"):
             auth_git_url = repo_input.replace("https://github.com/", f"https://x-access-token:{auth_token}@github.com/")
 
@@ -149,18 +149,30 @@ async def create_task(
             if req.branch and req.branch.strip():
                 clone_cmd.extend(["-b", req.branch.strip()])
             clone_cmd.extend([auth_git_url, target_dir])
+            
             proc = await asyncio.create_subprocess_exec(
                 *clone_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await proc.communicate()
+            
             if proc.returncode != 0:
-                err_msg = stderr.decode().strip() or stdout.decode().strip()
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Failed to clone GitHub repository '{repo_input}': {err_msg}",
+                # Fallback: Retry standard git clone without -b flag to use repository default branch
+                fallback_cmd = ["git", "clone", auth_git_url, target_dir]
+                proc_fb = await asyncio.create_subprocess_exec(
+                    *fallback_cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
                 )
+                stdout_fb, stderr_fb = await proc_fb.communicate()
+                
+                if proc_fb.returncode != 0:
+                    err_msg = stderr_fb.decode().strip() or stderr.decode().strip() or stdout.decode().strip()
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to clone GitHub repository '{repo_input}': {err_msg}",
+                    )
         else:
             # If target dir exists, fetch origin to ensure latest code
             fetch_cmd = ["git", "-C", target_dir, "fetch", "origin"]
