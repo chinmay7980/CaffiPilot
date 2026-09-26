@@ -56,19 +56,30 @@ export const App: React.FC = () => {
   useEffect(() => {
     refreshHealth();
 
-    // Handle GitHub OAuth redirect parameters
+    // Handle GitHub OAuth redirect parameters dynamically
     const params = new URLSearchParams(window.location.search);
     const oauthToken = params.get('token');
     const authStatus = params.get('auth');
-    const uname = params.get('username') || 'VanshSharma88';
+    const paramUsername = params.get('username');
 
-    if (oauthToken || authStatus === 'success') {
-      setAuthUser({
-        username: uname,
-        name: uname,
-        avatar: `https://github.com/${uname}.png`,
-        token: oauthToken || '',
-      });
+    if (oauthToken || authStatus === 'success' || paramUsername) {
+      const url = oauthToken
+        ? `http://127.0.0.1:8000/api/v1/github/user?token=${encodeURIComponent(oauthToken)}`
+        : `http://127.0.0.1:8000/api/v1/github/user?username=${encodeURIComponent(paramUsername || '')}`;
+
+      fetch(url)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.authenticated) {
+            setAuthUser({
+              username: data.username,
+              name: data.name || data.username,
+              avatar: data.avatar_url || `https://github.com/${data.username}.png`,
+              token: oauthToken || '',
+            });
+          }
+        })
+        .catch((err) => console.warn('Dynamic OAuth user fetch error:', err));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
