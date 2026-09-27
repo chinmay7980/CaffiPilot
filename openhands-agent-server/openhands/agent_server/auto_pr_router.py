@@ -179,16 +179,24 @@ def _execute_auto_pr(job_id: str, request: AutoPRRequest) -> None:
                 "LLM API key is required. Set export AI_API_KEY='...' or LLM_API_KEY in environment, or provide 'llm_api_key' in the request."
             )
 
-        # Create isolated workspace directory
-        temp_dir = tempfile.mkdtemp(prefix=f"ai_harness_pr_{repo_name}_")
+        # Create isolated workspace directory inside the project tree
+        # (avoids macOS /var/folders "Operation not permitted" on machines
+        #  where Terminal lacks Full Disk Access)
+        _project_root = Path(__file__).resolve().parents[3]  # → CaffiPilot/
+        _clones_base = _project_root / "workspace" / ".clones"
+        _clones_base.mkdir(parents=True, exist_ok=True)
+        temp_dir = str(
+            tempfile.mkdtemp(prefix=f"ai_harness_pr_{repo_name}_", dir=str(_clones_base))
+        )
         _append_log(job, f"Created temporary workspace at {temp_dir}")
 
-        # Clone repository
+        # Clone repository (cwd set explicitly to avoid macOS cwd permission issues)
         _append_log(job, f"Cloning {owner}/{repo_name}...")
         clone_proc = subprocess.run(
             ["git", "clone", clone_url, temp_dir],
             capture_output=True,
             text=True,
+            cwd="/",
         )
         if clone_proc.returncode != 0:
             raise RuntimeError(f"git clone failed: {clone_proc.stderr.strip()}")

@@ -222,3 +222,6 @@ clients/typescript/dist/
 clients/typescript/coverage/
 clients/typescript/.audit/
 clients/typescript/junit.xml
+
+# Cloned repos during harness evaluation
+workspace/.clones/
