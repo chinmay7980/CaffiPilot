@@ -11,16 +11,25 @@ ARGS ?=
 .DEFAULT_GOAL := help
 
 setup:
-	@$(MAKE) -C CaffiPilot setup
+	@echo "Setting up CaffiPilot..."
+	@python3 -m pip install -r requirements.txt
 
 run:
-	@AI_API_KEY="$(AI_API_KEY)" $(MAKE) -C CaffiPilot run ARGS="$(ARGS)"
+	@AI_API_KEY="$(AI_API_KEY)" python3 main.py $(ARGS)
 
 test:
-	@AI_API_KEY="$(AI_API_KEY)" $(MAKE) -C CaffiPilot test
+	@AI_API_KEY="$(AI_API_KEY)" python3 -m pytest
 
 clean:
-	@$(MAKE) -C CaffiPilot clean
+	@echo "Cleaning CaffiPilot..."
+	@find . -type d -name "__pycache__" -exec rm -rf {} +
+	@find . -type f -name "*.pyc" -delete
 
 help:
-	@$(MAKE) -C CaffiPilot help
+	@echo "CaffiPilot commands:"
+	@echo ""
+	@echo "  make setup     Install dependencies"
+	@echo "  make run       Run CaffiPilot"
+	@echo "  make test      Run tests"
+	@echo "  make clean     Clean generated Python files"
+	@echo "  make help      Show this help"
