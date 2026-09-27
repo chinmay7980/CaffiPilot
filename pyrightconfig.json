@@ -1,0 +1,28 @@
+{
+  "include": [
+    "CaffiPilot/openhands-sdk",
+    "CaffiPilot/openhands-tools",
+    "CaffiPilot/openhands-workspace",
+    "CaffiPilot/openhands-agent-server",
+    "CaffiPilot/examples",
+    "CaffiPilot/tests",
+    "CaffiPilot/scripts"
+  ],
+  "extraPaths": [
+    "CaffiPilot/openhands-sdk",
+    "CaffiPilot/openhands-tools",
+    "CaffiPilot/openhands-workspace",
+    "CaffiPilot/openhands-agent-server",
+    "CaffiPilot/.venv/lib/python3.13/site-packages",
+    "OpenHands/openhands-sdk",
+    "OpenHands/openhands-tools",
+    "OpenHands/openhands-workspace",
+    "OpenHands/openhands-agent-server",
+    "OpenHands/.venv/lib/python3.13/site-packages"
+  ],
+  "venvPath": "CaffiPilot",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": false
+}

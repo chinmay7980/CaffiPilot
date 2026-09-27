@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CaffiPilot Autonomous Cockpit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #070a13;
+      --bg-card: rgba(15, 23, 42, 0.72);
+      --bg-card-hover: rgba(22, 34, 62, 0.82);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-focus: #6366f1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+      --terminal-bg: #030712;
+      --radius-xl: 18px;
+      --radius-lg: 12px;
+      --radius-md: 8px;
+      --radius-sm: 6px;
+      --shadow-glow: 0 0 35px rgba(99, 102, 241, 0.22);
+      --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image:
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 45%),
+        radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 40%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 35%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Header */
+    header {
+      background: rgba(7, 10, 19, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0.9rem 2.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: var(--primary-gradient);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45);
+      position: relative;
+    }
+
+    .brand-logo svg {
+      width: 22px;
+      height: 22px;
+      fill: white;
+    }
+
+    .brand-text h1 {
+      font-size: 1.22rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      background: rgba(99, 102, 241, 0.16);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      letter-spacing: 0.06em;
+    }
+
+    .badge-model {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      background: rgba(6, 182, 212, 0.12);
+      color: #67e8f9;
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-model::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #06b6d4;
+      box-shadow: 0 0 8px #06b6d4;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 6px 12px;
+      border-radius: 9999px;
+      border: 1px solid var(--border-color);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.5;
+        transform: scale(0.85);
+      }
+    }
+
+    .header-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1480px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem 2.2rem 4rem;
+    }
+
+    /* Navigation Tabs */
+    .tabs-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 2rem;
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: white;
+      background: rgba(99, 102, 241, 0.16);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Grid Layout */
+    .autopr-grid {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .autopr-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      padding: 1.8rem;
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title .icon {
+      font-size: 1.25rem;
+    }
+
+    .card-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.45;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      letter-spacing: 0.01em;
+    }
+
+    label small {
+      font-weight: 400;
+      color: var(--text-dim);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      background: rgba(3, 7, 18, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--border-focus);
+      background: rgba(3, 7, 18, 0.95);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 110px;
+      line-height: 1.45;
+    }
+
+    .prompt-presets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .preset-chip {
+      font-size: 0.73rem;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset-chip:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #c7d2fe;
+      transform: translateY(-1px);
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--primary-gradient);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 13px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.38);
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 26px rgba(99, 102, 241, 0.55);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* GitHub OAuth Banner */
+    .github-auth-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      transition: all 0.2s;
+    }
+
+    .github-auth-banner.connected {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .github-auth-banner.unauthorized {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .auth-banner-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.88rem;
+    }
+
+    .auth-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-github-oauth {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      background: #238636;
+      color: white;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-github-oauth:hover {
+      background: #2ea043;
+      transform: translateY(-1px);
+    }
+
+    .btn-github-reauth {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      text-decoration: underline;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .btn-github-reauth:hover {
+      color: var(--text-main);
+    }
+
+    /* Pipeline Multi-Stage Stepper */
+    .pipeline-stepper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding: 16px 20px;
+      background: rgba(3, 7, 18, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 2;
+      flex: 1;
+    }
+
+    .step-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .step-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-align: center;
+      transition: color 0.3s;
+      white-space: nowrap;
+    }
+
+    .step-item.active .step-circle {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.2);
+      color: #c7d2fe;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.5);
+      transform: scale(1.1);
+      animation: pulse-step 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-step {
+
+      0%,
+      100% {
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 24px rgba(99, 102, 241, 0.8);
+      }
+    }
+
+    .step-item.active .step-label {
+      color: #c7d2fe;
+    }
+
+    .step-item.completed .step-circle {
+      border-color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .step-item.completed .step-label {
+      color: #6ee7b7;
+    }
+
+    .step-line {
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      flex: 1;
+      margin: 0 -8px 20px -8px;
+      position: relative;
+      z-index: 1;
+      transition: background 0.3s ease;
+    }
+
+    .step-line.completed {
+      background: linear-gradient(90deg, var(--accent-green), var(--primary));
+    }
+
+    /* Changed Files Container */
+    .changed-files-container {
+      margin-bottom: 16px;
+      padding: 14px 18px;
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: var(--radius-lg);
+      animation: slide-down 0.3s ease;
+    }
+
+    @keyframes slide-down {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .changed-files-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .files-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #6ee7b7;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .changed-files-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .file-chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      background: rgba(3, 7, 18, 0.85);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #a7f3d0;
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .file-chip .badge-diff {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.25);
+      color: #34d399;
+    }
+
+    /* Terminal & Log Viewer */
+    .terminal-container {
+      background: var(--terminal-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 580px;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+    }
+
+    .terminal-header {
+      background: rgba(15, 23, 42, 0.95);
+      padding: 10px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .terminal-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+
+    .dot-red {
+      background-color: #ef4444;
+    }
+
+    .dot-yellow {
+      background-color: #f59e0b;
+    }
+
+    .dot-green {
+      background-color: #10b981;
+    }
+
+    .terminal-status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .terminal-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .job-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.18);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+    }
+
+    /* Log Controls Bar */
+    .log-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: rgba(11, 17, 33, 0.9);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-tab:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .filter-tab.active {
+      color: white;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .log-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .timer-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 3px 9px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .btn-log-action {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+
+    .btn-log-action:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+
+    /* Terminal Body */
+    .terminal-body {
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Log Entry Styles */
+    .log-entry {
+      word-break: break-word;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+
+    .log-entry:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Thinking Entry */
+    .log-entry.log-thinking {
+      background: rgba(168, 85, 247, 0.08);
+      border-left: 3px solid var(--accent-purple);
+      color: #e9d5ff;
+      padding: 8px 12px;
+      font-style: italic;
+    }
+
+    .log-entry.log-thinking .log-badge {
+      background: rgba(168, 85, 247, 0.25);
+      color: #d8b4fe;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      font-style: normal;
+    }
+
+    /* Action / Tool Call */
+    .log-entry.log-action {
+      background: rgba(6, 182, 212, 0.08);
+      border-left: 3px solid var(--accent-cyan);
+      color: #a5f3fc;
+      padding: 8px 12px;
+    }
+
+    .log-entry.log-action .log-badge {
+      background: rgba(6, 182, 212, 0.25);
+      color: #67e8f9;
+      border: 1px solid rgba(6, 182, 212, 0.4);
+    }
+
+    .log-entry.log-action code {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #fef08a;
+    }
+
+    /* Result / Observation */
+    .log-entry.log-result {
+      color: #94a3b8;
+      border-left: 2px solid rgba(255, 255, 255, 0.15);
+      padding-left: 10px;
+      margin-left: 12px;
+      font-size: 0.78rem;
+    }
+
+    /* Success */
+    .log-entry.log-success {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      padding: 10px 14px;
+      font-weight: 600;
+    }
+
+    /* Error */
+    .log-entry.log-error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 10px 14px;
+    }
+
+    /* System */
+    .log-entry.log-system {
+      color: var(--text-dim);
+    }
+
+    .log-time {
+      color: #475569;
+      margin-right: 8px;
+      font-size: 0.74rem;
+      user-select: none;
+    }
+
+    .log-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-right: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Pull Request Result Card */
+    .pr-banner {
+      display: none;
+      margin-top: 18px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2);
+      animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes pop-in {
+      from {
+        opacity: 0;
+        transform: scale(0.96) translateY(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .pr-banner-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .pr-banner-info h4 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #6ee7b7;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .pr-banner-info p {
+      font-size: 0.84rem;
+      color: #cbd5e1;
+    }
+
+    .pr-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-pr-link {
+      background: #10b981;
+      color: #030712;
+      text-decoration: none;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+      transition: all 0.2s;
+    }
+
+    .btn-pr-link:hover {
+      background: #34d399;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+    }
+
+    .btn-copy-pr {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-copy-pr:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Bash Sandbox Runner */
+    .cmd-history {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .cmd-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--accent-cyan);
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .cmd-btn:hover {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: rgba(6, 182, 212, 0.35);
+      color: #67e8f9;
+    }
+
+    /* Runtime tools grid */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .tool-chip {
+      background: rgba(3, 7, 18, 0.7);
+      border: 1px solid var(--border-color);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s;
+    }
+
+    .tool-chip:hover {
+      border-color: rgba(99, 102, 241, 0.35);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .tool-chip .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    .meta-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .meta-item {
+      background: rgba(3, 7, 18, 0.7);
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .meta-item strong {
+      color: var(--text-main);
+      display: block;
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <a href="/ui" class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>CaffiPilot <span class="badge-pill">Cockpit</span></h1>
+      </div>
+    </a>
+
+    <div class="header-actions">
+      <div class="badge-model">
+        Ollama Cloud &bull; gpt-oss:120b
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="backend-status-text">Server Online :8000</span>
+      </div>
+      <a href="/docs" target="_blank" class="header-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        Swagger Docs
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Navigation Tabs -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('autopr')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="18" r="3"></circle>
+          <circle cx="6" cy="6" r="3"></circle>
+          <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+          <line x1="6" y1="9" x2="6" y2="21"></line>
+        </svg>
+        Autonomous Issue-to-PR
+      </button>
+      <button class="tab-btn" onclick="switchTab('bash')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+        Bash Sandbox Runner
+      </button>
+      <button class="tab-btn" onclick="switchTab('system')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+          <line x1="6" y1="6" x2="6.01" y2="6"></line>
+          <line x1="6" y1="18" x2="6.01" y2="18"></line>
+        </svg>
+        Runtime & Agent Tools
+      </button>
+    </div>
+
+    <!-- TAB 1: Auto-PR Workflow -->
+    <div id="tab-autopr" class="tab-pane active autopr-grid">
+
+      <!-- Input Configuration Card -->
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">⚡</span>
+          Autonomous PR Engine
+        </div>
+        <p class="card-subtitle">Provide any GitHub repo URL and task prompt. The AI agent will clone, investigate,
+          modify files, commit, push, and open a Pull Request.</p>
+
+        <!-- GitHub OAuth Banner -->
+        <div id="github-connection-banner" class="github-auth-banner">
+          <div class="auth-banner-left">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            <div id="github-auth-status-text">Checking GitHub Connection...</div>
+          </div>
+          <div id="github-auth-action-container">
+            <a href="/api/auth/github/login" class="btn-github-oauth">Connect GitHub</a>
+          </div>
+        </div>
+
+        <form id="autopr-form" onsubmit="handleAutoPRSubmit(event)">
+          <div class="form-group">
+            <label for="repo-url">Target Repository URL *</label>
+            <input type="text" id="repo-url" placeholder="https://github.com/owner/repository"
+              value="https://github.com/adityamathur5934/GitLearning" required>
+          </div>
+
+          <div class="form-group">
+            <label for="issue-prompt">Task / Issue Prompt *</label>
+            <textarea id="issue-prompt" placeholder="Describe the feature to write, bug to fix, or changes to make..."
+              required>Create a new file hello_world.js that prints a welcoming greeting and export a greet() function.</textarea>
+            <div class="prompt-presets">
+              <span class="preset-chip"
+                onclick="setPreset('Create a new file hello_world.js that prints a welcoming greeting and export a greet() function.')">👋
+                Hello World File</span>
+              <span class="preset-chip"
+                onclick="setPreset('Add a comprehensive test suite covering the core modules and verify test execution.')">🧪
+                Add Tests</span>
+              <span class="preset-chip"
+                onclick="setPreset('Find and fix any formatting or spelling errors in documentation and README.')">📝
+                Fix Docs</span>
+              <span class="preset-chip"
+                onclick="setPreset('Implement an API healthcheck endpoint /health with JSON response and write test.')">🛡️
+                Healthcheck</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="github-token">GitHub Token <small>(optional if connected)</small></label>
+              <input type="password" id="github-token" placeholder="Auto-loaded from OAuth">
+            </div>
+            <div class="form-group">
+              <label for="llm-api-key">LLM API Key <small>(optional if in .env)</small></label>
+              <input type="password" id="llm-api-key" placeholder="Auto-loaded from .env">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="llm-model">Model (Ollama Cloud)</label>
+              <select id="llm-model">
+                <option value="openai/gpt-oss:120b" selected>gpt-oss:120b (Ollama Cloud)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="base-branch">Base Branch</label>
+              <input type="text" id="base-branch" placeholder="auto-detected (e.g. master/main)">
+            </div>
+          </div>
+
+          <button type="submit" id="btn-run" class="btn-submit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Start Autonomous Fix & Create PR
+          </button>
+        </form>
+      </div>
+
+      <!-- Execution Logs & Live Stream Card -->
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">🖥️</span>
+          Live Agent Execution Cockpit
+        </div>
+        <p class="card-subtitle">Real-time step-by-step progress, agent reasoning, tool actions, and file modifications.
+        </p>
+
+        <!-- Pipeline Stepper -->
+        <div class="pipeline-stepper" id="pipeline-stepper">
+          <div class="step-item" id="step-clone">
+            <div class="step-circle">📦</div>
+            <div class="step-label">Clone & Setup</div>
+          </div>
+          <div class="step-line" id="line-1"></div>
+          <div class="step-item" id="step-reason">
+            <div class="step-circle">🧠</div>
+            <div class="step-label">Reasoning</div>
+          </div>
+          <div class="step-line" id="line-2"></div>
+          <div class="step-item" id="step-edit">
+            <div class="step-circle">✏️</div>
+            <div class="step-label">Modifying Files</div>
+          </div>
+          <div class="step-line" id="line-3"></div>
+          <div class="step-item" id="step-push">
+            <div class="step-circle">🚀</div>
+            <div class="step-label">Fork & Push</div>
+          </div>
+          <div class="step-line" id="line-4"></div>
+          <div class="step-item" id="step-pr">
+            <div class="step-circle">🎉</div>
+            <div class="step-label">PR Created</div>
+          </div>
+        </div>
+
+        <!-- Changed Files Showcase (Dynamic) -->
+        <div id="changed-files-container" class="changed-files-container" style="display: none;">
+          <div class="changed-files-header">
+            <span class="files-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+              Modified / Created Files (<span id="changed-files-count">0</span>)
+            </span>
+          </div>
+          <div id="changed-files-list" class="changed-files-list"></div>
+        </div>
+
+        <!-- Terminal Container -->
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot dot-red"></span>
+              <span class="terminal-dot dot-yellow"></span>
+              <span class="terminal-dot dot-green"></span>
+            </div>
+            <div class="terminal-status-wrap">
+              <span class="terminal-title" id="terminal-job-status">IDLE - Ready for task</span>
+              <span class="job-badge" id="terminal-job-id" style="display: none;"></span>
+            </div>
+          </div>
+
+          <!-- Controls Bar -->
+          <div class="log-controls">
+            <div class="filter-tabs">
+              <button class="filter-tab active" data-filter="all" onclick="setLogFilter('all')">All (<span
+                  id="count-all">0</span>)</button>
+              <button class="filter-tab" data-filter="thinking" onclick="setLogFilter('thinking')">🧠 Reasoning</button>
+              <button class="filter-tab" data-filter="action" onclick="setLogFilter('action')">🛠️ Tools</button>
+              <button class="filter-tab" data-filter="git" onclick="setLogFilter('git')">🐙 Git & PR</button>
+            </div>
+            <div class="log-actions">
+              <div class="timer-pill" id="live-timer" style="display: none;">00:00</div>
+              <button class="btn-log-action" id="btn-autoscroll" onclick="toggleAutoScroll()">
+                <span id="autoscroll-dot"
+                  style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                Auto-Scroll
+              </button>
+              <button class="btn-log-action" onclick="copyAllLogs()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy
+              </button>
+              <button class="btn-log-action" onclick="clearTerminalLogs()">Clear</button>
+            </div>
+          </div>
+
+          <!-- Stream Body -->
+          <div class="terminal-body" id="terminal-logs">
+            <div class="log-entry log-system">
+              <span class="log-time">[System]</span>
+              <span>CaffiPilot Agent Server initialized. Ready to autonomously resolve tasks and open Pull
+                Requests.</span>
+            </div>
+            <div class="log-entry log-system">
+              <span class="log-time">[System]</span>
+              <span>Configure target repository and prompt on the left, then click <strong>Start Autonomous
+                  Fix</strong>.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pull Request Ready Banner -->
+        <div id="pr-banner" class="pr-banner">
+          <div class="pr-banner-content">
+            <div class="pr-banner-info">
+              <h4>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+                Pull Request Created & Live!
+              </h4>
+              <p id="pr-banner-subtitle">Branch pushed and Pull Request opened on GitHub.</p>
+            </div>
+            <div class="pr-actions">
+              <a href="#" id="pr-link" target="_blank" class="btn-pr-link">
+                View on GitHub ↗
+              </a>
+              <button class="btn-copy-pr" id="btn-copy-pr" onclick="copyPRLink()">
+                Copy URL
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: Bash Sandbox Runner -->
+    <div id="tab-bash" class="tab-pane">
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">💻</span>
+          Direct Backend Bash Execution
+        </div>
+        <p class="card-subtitle">Execute commands directly through the CaffiPilot agent process manager.</p>
+
+        <div class="form-group" style="margin-top: 10px;">
+          <label>Quick Command Shortcuts</label>
+          <div class="cmd-history">
+            <button class="cmd-btn" onclick="runBashCommand('git --version')">git --version</button>
+            <button class="cmd-btn" onclick="runBashCommand('python3 --version')">python3 --version</button>
+            <button class="cmd-btn" onclick="runBashCommand('uname -a')">uname -a</button>
+            <button class="cmd-btn" onclick="runBashCommand('uptime')">uptime</button>
+            <button class="cmd-btn" onclick="runBashCommand('pwd && ls -la')">pwd & ls</button>
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-top: 10px; align-items: flex-end;">
+          <div class="form-group" style="flex: 1;">
+            <label for="bash-input">Command</label>
+            <input type="text" id="bash-input" placeholder="echo 'Hello from CaffiPilot'"
+              value="echo 'Hello from CaffiPilot Backend!'">
+          </div>
+          <button class="btn-submit" style="margin-top: 0; height: 42px;" onclick="runBashCommand()">Run
+            Command</button>
+        </div>
+
+        <div class="terminal-container" style="height: 380px; margin-top: 14px;">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot dot-red"></span>
+              <span class="terminal-dot dot-yellow"></span>
+              <span class="terminal-dot dot-green"></span>
+            </div>
+            <span class="terminal-title">Bash Terminal Output</span>
+            <span></span>
+          </div>
+          <div class="terminal-body" id="bash-output">
+            <div class="log-entry log-system">Terminal ready. Enter any command to execute inside the server
+              environment.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: System Runtime & Tools -->
+    <div id="tab-system" class="tab-pane">
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">⚙️</span>
+          Runtime Environment & Preloaded Tools
+        </div>
+        <p class="card-subtitle">Server capabilities, active LLM config, and loaded agent tools.</p>
+
+        <h3 style="font-size: 0.95rem; font-weight: 700; margin-top: 10px;">Active Agent Tools</h3>
+        <div class="tools-grid" id="tools-list">
+          <div class="tool-chip"><span class="dot"></span><span>terminal</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>file_editor</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>view_file</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>grep_search</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>list_dir</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>web_search</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>fetch_web_page</span></div>
+          <div class="tool-chip"><span class="dot"></span><span>git_manager</span></div>
+        </div>
+
+        <h3 style="font-size: 0.95rem; font-weight: 700; margin-top: 24px;">Backend Metadata</h3>
+        <div class="meta-list" id="meta-list">
+          <div class="meta-item"><strong>Framework</strong> CaffiPilot Agent Server</div>
+          <div class="meta-item"><strong>LLM Provider</strong> Ollama Cloud (https://ollama.com/v1)</div>
+          <div class="meta-item"><strong>Primary Model</strong> openai/gpt-oss:120b</div>
+          <div class="meta-item"><strong>Execution Mode</strong> Local Sandboxed Workspace</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Tab switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b =>
+        b.getAttribute('onclick').includes(tabId)
+      );
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const activePane = document.getElementById('tab-' + tabId);
+      if (activePane) activePane.classList.add('active');
+    }
+
+    function setPreset(text) {
+      document.getElementById('issue-prompt').value = text;
+    }
+
+    // LocalStorage keys
+    const GITHUB_TOKEN_KEY = 'ai_harness_gh_token';
+    const LLM_KEY = 'ai_harness_llm_key';
+
+    // State
+    let allLogEntries = [];
+    let currentFilter = 'all';
+    let autoScroll = true;
+    let timerInterval = null;
+    let timerSeconds = 0;
+    let pollingInterval = null;
+    let detectedFiles = new Set();
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Clear outdated zero-scope token from previous runs
+      if (localStorage.getItem(GITHUB_TOKEN_KEY)?.startsWith('ghp_V0Odv')) {
+        localStorage.removeItem(GITHUB_TOKEN_KEY);
+      }
+      const savedGh = localStorage.getItem(GITHUB_TOKEN_KEY);
+      if (savedGh) document.getElementById('github-token').value = savedGh;
+
+      const savedLlm = localStorage.getItem(LLM_KEY);
+      if (savedLlm) document.getElementById('llm-api-key').value = savedLlm;
+
+      checkGitHubOAuthStatus();
+      fetchServerDetails();
+    });
+
+    // Check GitHub OAuth Status
+    async function checkGitHubOAuthStatus() {
+      const banner = document.getElementById('github-connection-banner');
+      const textElem = document.getElementById('github-auth-status-text');
+      const actionContainer = document.getElementById('github-auth-action-container');
+
+      try {
+        const res = await fetch('/api/auth/github/status');
+        if (!res.ok) throw new Error('Status error');
+        const data = await res.json();
+
+        if (data.authenticated && data.user) {
+          banner.className = 'github-auth-banner connected';
+          const avatar = data.user.avatar_url
+            ? `<img src="${data.user.avatar_url}" class="auth-avatar" alt="${data.user.login}">`
+            : '';
+          textElem.innerHTML = `
+            ${avatar}
+            <div>
+              <strong>Connected as @${data.user.login}</strong>
+              <div style="font-size: 0.76rem; color: #10b981;">Full Repo & Pull Request Access Ready</div>
+            </div>
+          `;
+          actionContainer.innerHTML = `
+            <a href="/api/auth/github/login" class="btn-github-reauth">Switch / Re-auth</a>
+          `;
+          if (data.token) {
+            document.getElementById('github-token').value = data.token;
+            localStorage.setItem(GITHUB_TOKEN_KEY, data.token);
+          }
+        } else {
+          banner.className = 'github-auth-banner unauthorized';
+          textElem.innerHTML = `
+            <div>
+              <strong>GitHub Not Connected</strong>
+              <div style="font-size: 0.76rem; color: #f59e0b;">Connect via OAuth to enable 1-click Auto-PRs</div>
+            </div>
+          `;
+          actionContainer.innerHTML = `
+            <a href="/api/auth/github/login" class="btn-github-oauth">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              Connect GitHub
+            </a>
+          `;
+        }
+      } catch (e) {
+        console.error('Failed to check GitHub status', e);
+      }
+    }
+
+    async function fetchServerDetails() {
+      try {
+        const res = await fetch('/api/server_details');
+        if (!res.ok) return;
+        const data = await res.json();
+        const toolsList = document.getElementById('tools-list');
+        if (data.tools && data.tools.length > 0) {
+          toolsList.innerHTML = '';
+          data.tools.forEach(tool => {
+            const chip = document.createElement('div');
+            chip.className = 'tool-chip';
+            chip.innerHTML = `<span class="dot"></span><span>${tool}</span>`;
+            toolsList.appendChild(chip);
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching server details', e);
+      }
+    }
+
+    // Pipeline Stepper updater
+    function updatePipelineStage(stage) {
+      const steps = ['clone', 'reason', 'edit', 'push', 'pr'];
+      const currentIdx = steps.indexOf(stage);
+      if (currentIdx === -1) return;
+
+      steps.forEach((s, idx) => {
+        const elem = document.getElementById('step-' + s);
+        if (!elem) return;
+        elem.classList.remove('active', 'completed');
+        if (idx < currentIdx) {
+          elem.classList.add('completed');
+        } else if (idx === currentIdx) {
+          elem.classList.add('active');
+        }
+      });
+
+      for (let i = 1; i <= 4; i++) {
+        const line = document.getElementById('line-' + i);
+        if (!line) continue;
+        if (i <= currentIdx) {
+          line.classList.add('completed');
+        } else {
+          line.classList.remove('completed');
+        }
+      }
+    }
+
+    // Auto-PR Submission
+    async function handleAutoPRSubmit(e) {
+      e.preventDefault();
+      const repoUrl = document.getElementById('repo-url').value.trim();
+      const issue = document.getElementById('issue-prompt').value.trim();
+      const githubToken = document.getElementById('github-token').value.trim();
+      const llmApiKey = document.getElementById('llm-api-key').value.trim();
+      const llmModel = document.getElementById('llm-model').value;
+      const baseBranch = document.getElementById('base-branch').value.trim();
+
+      if (githubToken) localStorage.setItem(GITHUB_TOKEN_KEY, githubToken);
+      if (llmApiKey) localStorage.setItem(LLM_KEY, llmApiKey);
+
+      const btn = document.getElementById('btn-run');
+      btn.disabled = true;
+      btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="animate-spin"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"></circle></svg> Launching Agent...`;
+
+      // Reset state
+      clearTerminalLogs();
+      detectedFiles.clear();
+      document.getElementById('changed-files-container').style.display = 'none';
+      document.getElementById('changed-files-list').innerHTML = '';
+      document.getElementById('pr-banner').style.display = 'none';
+      updatePipelineStage('clone');
+
+      // Start timer
+      startTimer();
+
+      appendRichLog({
+        type: 'system',
+        text: 'Submitting request to CaffiPilot backend...',
+        category: 'git'
+      });
+
+      try {
+        const payload = {
+          repo_url: repoUrl,
+          issue: issue,
+          github_token: githubToken || undefined,
+          llm_api_key: llmApiKey || undefined,
+          llm_model: llmModel,
+          base_branch: baseBranch || undefined
+        };
+
+        const res = await fetch('/api/auto-pr/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(errData.detail || 'Submission failed');
+        }
+
+        const job = await res.json();
+        const jobIdBadge = document.getElementById('terminal-job-id');
+        jobIdBadge.style.display = 'inline-block';
+        jobIdBadge.innerText = `Job: ${job.job_id}`;
+        document.getElementById('terminal-job-status').innerText = 'RUNNING';
+
+        appendRichLog({
+          type: 'system',
+          text: `Job enqueued with ID: ${job.job_id}. Live execution stream attached.`,
+          category: 'git'
+        });
+
+        pollJobStatus(job.job_id);
+
+      } catch (err) {
+        appendRichLog({
+          type: 'error',
+          text: `Failed to launch task: ${err.message}`,
+          category: 'git'
+        });
+        stopTimer();
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Start Autonomous Fix & Create PR`;
+      }
+    }
+
+    // Polling status
+    function pollJobStatus(jobId) {
+      if (pollingInterval) clearInterval(pollingInterval);
+      const terminalStatus = document.getElementById('terminal-job-status');
+      const btn = document.getElementById('btn-run');
+      let seenLogs = 0;
+
+      pollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/auto-pr/jobs/${jobId}`);
+          if (!res.ok) return;
+
+          const job = await res.json();
+          terminalStatus.innerText = job.status.toUpperCase();
+
+          // Render new logs
+          if (job.logs && job.logs.length > seenLogs) {
+            for (let i = seenLogs; i < job.logs.length; i++) {
+              parseAndRenderLogLine(job.logs[i]);
+            }
+            seenLogs = job.logs.length;
+          }
+
+          // Check files changed from job object
+          if (job.files_changed && job.files_changed.length > 0) {
+            job.files_changed.forEach(f => registerChangedFile(f));
+          }
+
+          if (job.status === 'completed' || job.status === 'failed') {
+            clearInterval(pollingInterval);
+            stopTimer();
+
+            btn.disabled = false;
+            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Start Autonomous Fix & Create PR`;
+
+            if (job.pull_request_url) {
+              updatePipelineStage('pr');
+              const prBanner = document.getElementById('pr-banner');
+              const prLink = document.getElementById('pr-link');
+              prLink.href = job.pull_request_url;
+              document.getElementById('pr-banner-subtitle').innerText =
+                `Successfully created PR from ${job.branch_name || 'CaffiPilot/fix'} into target repo!`;
+              prBanner.style.display = 'block';
+            }
+          }
+        } catch (e) {
+          console.error('Polling error', e);
+        }
+      }, 1000);
+    }
+
+    // Log Parser & Styler
+    function parseAndRenderLogLine(rawText) {
+      let type = 'system';
+      let category = 'git';
+      let text = rawText;
+
+      // Extract timestamp if present [HH:MM:SS]
+      let timeStr = new Date().toLocaleTimeString();
+      const timeMatch = rawText.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*(.*)$/);
+      if (timeMatch) {
+        timeStr = timeMatch[1];
+        text = timeMatch[2];
+      }
+
+      // Check log patterns
+      if (text.includes('[THINKING]')) {
+        type = 'thinking';
+        category = 'thinking';
+        updatePipelineStage('reason');
+      } else if (text.includes('[ACTION]')) {
+        type = 'action';
+        category = 'action';
+        updatePipelineStage('edit');
+        // Extract modified file if tool is writing
+        const fileMatch = text.match(/(write|edit|touch)\s+([a-zA-Z0-9_\-\.\/]+)/i);
+        if (fileMatch) registerChangedFile(fileMatch[2]);
+      } else if (text.includes('[RESULT]')) {
+        type = 'result';
+        category = 'action';
+      } else if (text.includes('Detected changed files') || text.includes('Staging and committing') || text.includes('modified file(s)')) {
+        type = 'git';
+        category = 'git';
+        updatePipelineStage('edit');
+        // Extract files
+        const listMatch = text.match(/Detected changed files \(\d+\):\s*(.*)$/);
+        if (listMatch) {
+          listMatch[1].split(',').forEach(item => {
+            const trimmed = item.trim();
+            if (trimmed) registerChangedFile(trimmed);
+          });
+        }
+      } else if (text.includes('Pushing branch') || text.includes('Fork ready')) {
+        type = 'git';
+        category = 'git';
+        updatePipelineStage('push');
+      } else if (text.includes('🎉') || text.includes('Pull Request created successfully')) {
+        type = 'success';
+        category = 'git';
+        updatePipelineStage('pr');
+      } else if (text.includes('ERROR') || text.includes('failed') || text.includes('rejected')) {
+        type = 'error';
+        category = 'git';
+      }
+
+      appendRichLog({ type, text, timeStr, category, rawText });
+    }
+
+    function appendRichLog({ type, text, timeStr = new Date().toLocaleTimeString(), category, rawText }) {
+      const container = document.getElementById('terminal-logs');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.dataset.category = category;
+
+      let badgeHtml = '';
+      if (type === 'thinking') {
+        badgeHtml = '<span class="log-badge">Reasoning</span>';
+      } else if (type === 'action') {
+        badgeHtml = '<span class="log-badge">Tool</span>';
+      } else if (type === 'success') {
+        badgeHtml = '<span class="log-badge" style="background:#10b981; color:#030712;">PR Live</span>';
+      } else if (type === 'error') {
+        badgeHtml = '<span class="log-badge" style="background:#ef4444; color:white;">Error</span>';
+      }
+
+      // Format markdown-like code blocks if present
+      let formattedText = text;
+      formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      entry.innerHTML = `
+        <span class="log-time">[${timeStr}]</span>
+        ${badgeHtml}
+        <span>${formattedText}</span>
+      `;
+
+      allLogEntries.push({ elem: entry, category });
+      document.getElementById('count-all').innerText = allLogEntries.length;
+
+      // Apply filter
+      if (currentFilter !== 'all' && currentFilter !== category) {
+        entry.style.display = 'none';
+      }
+
+      container.appendChild(entry);
+
+      if (autoScroll) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function registerChangedFile(filename) {
+      if (!filename || detectedFiles.has(filename)) return;
+      detectedFiles.add(filename);
+
+      const container = document.getElementById('changed-files-container');
+      const list = document.getElementById('changed-files-list');
+      const count = document.getElementById('changed-files-count');
+
+      container.style.display = 'block';
+      count.innerText = detectedFiles.size;
+
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      chip.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <span>${filename}</span>
+        <span class="badge-diff">MODIFIED</span>
+      `;
+      list.appendChild(chip);
+    }
+
+    // Filter logs
+    function setLogFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tab').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === filter);
+      });
+
+      allLogEntries.forEach(({ elem, category }) => {
+        if (filter === 'all' || filter === category) {
+          elem.style.display = 'block';
+        } else {
+          elem.style.display = 'none';
+        }
+      });
+
+      const container = document.getElementById('terminal-logs');
+      if (autoScroll) container.scrollTop = container.scrollHeight;
+    }
+
+    // Auto-scroll toggle
+    function toggleAutoScroll() {
+      autoScroll = !autoScroll;
+      const dot = document.getElementById('autoscroll-dot');
+      dot.style.background = autoScroll ? '#10b981' : '#64748b';
+      if (autoScroll) {
+        const container = document.getElementById('terminal-logs');
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    // Clear logs
+    function clearTerminalLogs() {
+      allLogEntries = [];
+      document.getElementById('terminal-logs').innerHTML = '';
+      document.getElementById('count-all').innerText = '0';
+    }
+
+    // Copy all logs
+    function copyAllLogs() {
+      const text = allLogEntries.map(e => e.elem.innerText).join('\n');
+      navigator.clipboard.writeText(text);
+      const btn = event.currentTarget;
+      const originalText = btn.innerHTML;
+      btn.innerText = 'Copied!';
+      setTimeout(() => btn.innerHTML = originalText, 1500);
+    }
+
+    // Copy PR link
+    function copyPRLink() {
+      const url = document.getElementById('pr-link').href;
+      navigator.clipboard.writeText(url);
+      const btn = document.getElementById('btn-copy-pr');
+      btn.innerText = 'Copied!';
+      setTimeout(() => btn.innerText = 'Copy URL', 1500);
+    }
+
+    // Timer
+    function startTimer() {
+      stopTimer();
+      timerSeconds = 0;
+      const timerPill = document.getElementById('live-timer');
+      timerPill.style.display = 'inline-block';
+      timerPill.innerText = '00:00';
+
+      timerInterval = setInterval(() => {
+        timerSeconds++;
+        const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+        const secs = String(timerSeconds % 60).padStart(2, '0');
+        timerPill.innerText = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    // Bash runner
+    async function runBashCommand(customCmd) {
+      const input = document.getElementById('bash-input');
+      const cmd = customCmd || input.value.trim();
+      if (!cmd) return;
+      if (customCmd) input.value = customCmd;
+
+      const output = document.getElementById('bash-output');
+      const cmdEntry = document.createElement('div');
+      cmdEntry.className = 'log-entry log-action';
+      cmdEntry.innerHTML = `<span class="log-badge">EXEC</span> <code>$ ${cmd}</code>`;
+      output.appendChild(cmdEntry);
+
+      try {
+        const res = await fetch('/api/bash/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd, timeout: 60 })
+        });
+        const data = await res.json();
+        const resEntry = document.createElement('div');
+        resEntry.className = 'log-entry log-result';
+        resEntry.innerText = data.output || data.stdout || '(Command executed with no output)';
+        output.appendChild(resEntry);
+        output.scrollTop = output.scrollHeight;
+      } catch (err) {
+        const errEntry = document.createElement('div');
+        errEntry.className = 'log-entry log-error';
+        errEntry.innerText = `Error: ${err.message}`;
+        output.appendChild(errEntry);
+      }
+    }
+  </script>
+</body>
+
+</html>
